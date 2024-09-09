@@ -1,6 +1,12 @@
 require "plugins/version"
-require "plugins/railtie"
+require "plugins/engine"
 
 module Plugins
-  # Your code goes here...
+  autoload :Configuration, "plugins/configuration"
+  autoload :Controllers, "plugins/controllers"
+  autoload :Models, "plugins/models"
+  autoload :Presenters, "plugins/presenters"
+  autoload :Errors, "plugins/errors"
 end
+
+require "plugins/railtie"

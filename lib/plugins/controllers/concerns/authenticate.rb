@@ -19,7 +19,7 @@ module Plugins
         end
 
         def reject_unauthenticated!
-          raise Plugins::Errors::ApiAuthenticationError unless ewallet_current_user
+          raise Plugins::Errors::ApiAuthenticationError unless api_current_user
         end
 
         def skip_authentication!
