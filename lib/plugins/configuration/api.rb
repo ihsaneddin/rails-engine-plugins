@@ -1,4 +1,4 @@
-require 'plugins/configuration/callbacks'
+#require 'plugins/configuration/callbacks'
 
 module Plugins
   module Configuration
