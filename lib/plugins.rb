@@ -22,3 +22,4 @@ module Plugins
 end
 
 require "plugins/railtie"
+require 'plugins/hooks'

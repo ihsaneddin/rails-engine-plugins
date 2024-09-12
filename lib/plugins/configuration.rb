@@ -4,12 +4,15 @@ module Plugins
     autoload :Events, "plugins/configuration/events"
     autoload :Callbacks, "plugins/configuration/callbacks"
     autoload :Api, "plugins/configuration/api"
+    autoload :GrapeApi, "plugins/configuration/grape_api"
 
     mattr_accessor :events
     @@events = Plugins::Configuration::Events
 
-    mattr_accessor :_api
+    mattr_accessor :api
     @@api = Plugins::Configuration::Api
+    mattr_accessor :grape_api
+    @@grape_api = Plugins::Configuration::GrapeApi
 
     mattr_accessor :_engine_namespace
     @@_engine_namespace= nil

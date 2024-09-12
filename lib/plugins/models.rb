@@ -5,10 +5,13 @@ module Plugins
 
     extend ActiveSupport::Concern
 
-    def self.use_plugins_models
-      include Plugins::Models::Concerns::Eventable
-      include Plugins::Models::Concerns::ActsAsDefaultValue
+    class_methods do
+      def use_plugins_models
+        include Plugins::Models::Concerns::Eventable
+        include Plugins::Models::Concerns::ActsAsDefaultValue
+      end
     end
+
 
   end
 end

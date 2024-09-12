@@ -10,6 +10,10 @@ module Plugins
         include Plugins::Controllers
       end
 
+      ActiveSupport.on_load(:action_controller_api) do
+        self.include Plugins::Controllers
+      end
+
     end
 
   end
