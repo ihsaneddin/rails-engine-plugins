@@ -27,6 +27,16 @@ module Plugins
             end
           end
 
+          def default_presenter_class model
+            # debugger
+            # default = model.name.gsub("#{Plugins.config.engine_namespace}::", "")
+            # default = default.split("::")
+            # default.pop
+            default = [model.name.demodulize.classify]
+            default.unshift(Plugins.config.engine_namespace, "Grape", "Presenters")
+            default.join("::")
+          end
+
           #
           # return message
           #
@@ -83,20 +93,21 @@ module Plugins
             presenter_name = options.delete(:presenter_name) || get_context_presenter_name #self.try(:class_context).try(:presenter_name)
             if collection.is_a?(ActiveRecord::Relation)
               options[:meta]= pagination_info
-              presenter_name ||= collection.model.name
+              presenter_name ||= default_presenter_class(collection.model)
             elsif collection.is_a?(ActiveRecord::Base)
-              presenter_name ||= collection.class.name
+              presenter_name ||= default_presenter_class(collection.class)
             end
-            ver = version.upcase
+            ver = version.try(:upcase)
             begin
-              presenter_class = "::#{GrapeAPI.api_namespace}::#{ver}::Presenters::#{presenter_name}".constantize
+              presenter_class = "::#{Plugins.config.engine_namespace}::Grape::#{ver ? "#{ver}::" : ""}Presenters::#{presenter_name}".constantize
             rescue NameError
               begin
-                presenter_class = "::#{GrapeAPI.api_namespace}::#{ver}::Presenters::#{presenter_name.demodulize}".constantize
+                presenter_class = "::#{Plugins.config.engine_namespace}::#{ver ? "#{ver}::" : ""}::Presenters::#{presenter_name.demodulize}".constantize
               rescue NameError
                 presenter_class = presenter_name.constantize
               end
             end
+            raise ArgumentError, "#{presenter_class} should be subclass of #{::Grape::Entity}." unless presenter_class && presenter_class.ancestors.include?(::Grape::Entity)
             present collection, with: presenter_class, meta: options[:meta], root: options[:root], locals: options[:locals]
           end
 
@@ -151,7 +162,7 @@ module Plugins
           def pagination_info
             hash = {}
             if header
-              config = GrapeAPI.pagination.config
+              config = Plugins.config.grape_api.pagination.config
               hash[config.per_page] = header[config.per_page].to_i
               hash[config.page] = header[config.page].to_i if config.page
               if config.include_total

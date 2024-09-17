@@ -28,8 +28,11 @@ module Plugins
         end
 
         def presenter_class_constant
+          unless defined? Alba::Resource
+            raise "Please install alba gem"
+          end
           @presenter_class_constant ||= presenter_klass.safe_constantize
-          raise ArgumentError, "#{presenter_klass} should be sub-class of #{Plugins::Presenters::Base}." unless @presenter_class_constant && @presenter_class_constant.ancestors.include?(Plugins::Presenters::Base)
+          raise ArgumentError, "#{presenter_klass} should implement of #{Alba::Resource}." unless @presenter_class_constant && @presenter_class_constant.include?(Alba::Resource)
           @presenter_class_constant
         end
 
@@ -38,11 +41,11 @@ module Plugins
         end
 
         def default_presenter_class
-          default = self.class.name.gsub("Plugins::Api::", "")
+          default = self.class.name.gsub("#{Plugins.config.engine_namespace}::", "")
           default = default.split("::")
           default.pop
           default << controller_name.classify
-          default.unshift("Plugins", "Presenters")
+          default.unshift(Plugins.config.engine_namespace, "Controllers", "Presenters")
           default.join("::")
         end
 

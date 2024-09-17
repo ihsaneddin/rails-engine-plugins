@@ -389,7 +389,7 @@ module Plugins
           def model_klass_constant
             return @_model_klass if @_model_klass
             klass = _model_klass
-            if self.class.class_exists?(klass)
+            if class_context.class_exists?(klass)
               @_model_klass = klass.constantize
             else
               @_model_klass = klass.constantize
@@ -473,15 +473,21 @@ module Plugins
 
           def _query
             if(class_context)
-              query = get_value :query_scope
-              #query = class_context.query_scope
-              if query.respond_to?(:call)
-                model = _apply_query_includes(model_class)
-                query = instance_exec(model, &query)
-              else
-                query = _apply_query_includes(query)
-                query = query.where.not id: nil
+              model = _apply_query_includes(model_klass_constant)
+              query = get_value(:query_scope, model.where.not(id: nil)) || model.where.not(id: nil)
+              if(params[:order_by])
+                query = query.order params[:order_by]
               end
+              query
+              # query = get_value(:query_scope) ||
+              # #query = class_context.query_scope
+              # if query.respond_to?(:call)
+              #   model = _apply_query_includes(model_class)
+              #   query = instance_exec(model, &query)
+              # else
+              #   query = _apply_query_includes(query)
+              #   query = query.where.not id: nil
+              # end
               # if(params[:order_by])
               #   query = query.order params[:order_by]
               # end
@@ -586,7 +592,7 @@ module Plugins
 
           def resources
             var_name = class_context do |context|
-              context.model_klass.underscore.pluralize
+              context.model_klass.demodulize.underscore.pluralize
             end
             return instance_variable_get("@#{var_name}")
           end

@@ -316,7 +316,7 @@ module Plugins
 
         def _query
           model = _apply_query_includes(model_klass_constant)
-          query = get_value(:query_scope, model) || model.where.not(id: nil)
+          query = get_value(:query_scope, model.where.not(id: nil)) || model.where.not(id: nil)
           if(params[:order_by])
             query = query.order params[:order_by]
           end

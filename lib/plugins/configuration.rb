@@ -14,12 +14,8 @@ module Plugins
     mattr_accessor :grape_api
     @@grape_api = Plugins::Configuration::GrapeApi
 
-    mattr_accessor :_engine_namespace
-    @@_engine_namespace= nil
-
-    def engine_namespace=(namespace)
-      @@_engine_namespacee= namespace
-    end
+    mattr_accessor :engine_namespace
+    @@engine_namespace= "Plugins"
 
     def self.setup &block
       block.arity.zero? ? instance_eval(&block) : yield(self)
@@ -27,9 +23,9 @@ module Plugins
 
     def self.api &block
       if block_given?
-        @@_api.setup(&block)
+        @@api.setup(&block)
       else
-        @@_api
+        @@api
       end
     end
 
