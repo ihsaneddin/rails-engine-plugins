@@ -6,6 +6,8 @@ module Plugins
         def self.included base
           base.class_eval do
             class_attribute :presenter_name
+            class_attribute :engine_namespace
+            self.engine_namespace = self.name.split("::")[0]
           end
           base.extend ClassMethods
           ::Grape::Endpoint.include HelperMethods if defined? ::Grape::Endpoint
@@ -27,13 +29,21 @@ module Plugins
             end
           end
 
+          def get_context_engine_namespace
+            if self.try(:class_context)
+              class_context do |context|
+                context.name.split("::")[0]
+              end
+            end
+          end
+
           def default_presenter_class model
             # debugger
             # default = model.name.gsub("#{Plugins.config.engine_namespace}::", "")
             # default = default.split("::")
             # default.pop
             default = [model.name.demodulize.classify]
-            default.unshift(Plugins.config.engine_namespace, "Grape", "Presenters")
+            default.unshift(get_context_engine_namespace, "Grape", "Presenters")
             default.join("::")
           end
 
@@ -99,10 +109,10 @@ module Plugins
             end
             ver = version.try(:upcase)
             begin
-              presenter_class = "::#{Plugins.config.engine_namespace}::Grape::#{ver ? "#{ver}::" : ""}Presenters::#{presenter_name}".constantize
+              presenter_class = "::#{get_context_engine_namespace}::Grape::#{ver ? "#{ver}::" : ""}Presenters::#{presenter_name}".constantize
             rescue NameError
               begin
-                presenter_class = "::#{Plugins.config.engine_namespace}::#{ver ? "#{ver}::" : ""}::Presenters::#{presenter_name.demodulize}".constantize
+                presenter_class = "::#{get_context_engine_namespace}::#{ver ? "#{ver}::" : ""}::Presenters::#{presenter_name.demodulize}".constantize
               rescue NameError
                 presenter_class = presenter_name.constantize
               end

@@ -44,14 +44,14 @@ module Plugins
                 model_klass: nil,
                 resource_identifier: nil,
                 resource_finder_key: nil,
-                resource_params_key: nil,
+                #resource_params_key: nil,
                 resource_params_attributes: [],
                 resource_friendly: false,
                 query_includes: nil,
                 query_scope: nil,
                 resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
                 collection_actions: [ :index ],
-                got_resource_callback: nil,
+                after_fetch_resource: nil,
                 should_paginate: true,
               }
             end
@@ -63,6 +63,7 @@ module Plugins
           end
 
           def is_executed? name
+            return false
             self.resourceful_params(:executed).include?(name)
           end
 
@@ -131,8 +132,8 @@ module Plugins
             self.resourceful_params[:collection_actions]
           end
 
-          def model_klass(klass = nil)
-            if klass.nil?
+          def model_klass(klass = nil, &block)
+            if klass.nil? & !block_given?
               klass = self.resourceful_params[:model_klass]
               if klass.blank?
                 klass= self.to_s.demodulize.singularize.camelcase
@@ -140,19 +141,13 @@ module Plugins
               end
               klass
             else
-              set_resource_param :model_klass, klass
+              if block_given?
+                set_resource_param(:model_klass, block)
+              else
+                set_resource_param :model_klass, klass
+              end
               klass
             end
-          end
-
-          def model_klass_constant
-            if class_exists?(model_klass)
-              model_klass.constantize
-            else
-              model_klass.constantize
-            end
-          rescue
-            raise { ActiveRecord::RecordNotFound }
           end
 
           def attributes &block
@@ -194,7 +189,7 @@ module Plugins
             if identifier.blank? && !block_given?
               identifier = resourceful_params(:resource_identifier)
               if identifier.blank?
-                identifier = model_klass_constant.primary_key
+                identifier = "id"
                 set_resource_param :resource_identifier, identifier
               end
               identifier
@@ -211,7 +206,7 @@ module Plugins
             if key.blank? && !block_given?
               key = resourceful_params(:resource_finder_key)
               if key.nil?
-                key = model_klass_constant.primary_key
+                key = "id"
                 set_resource_param :resource_finder_key, key
               end
               key
@@ -229,18 +224,18 @@ module Plugins
             resource_finder_key identifier
           end
 
-          def resource_params_key(key = nil)
-            if key.nil?
-              key = resourceful_params(:resource_params_key)
-              if(key.nil?)
-                key = model_klass.underscore.downcase.to_sym
-                set_resource_param(:resource_params_key, key)
-              end
-            else
-              set_resource_param(:resource_params_key, key)
-            end
-            key
-          end
+          # def resource_params_key(key = nil)
+          #   if key.nil?
+          #     key = resourceful_params(:resource_params_key)
+          #     if(key.nil?)
+          #       key = model_klass.underscore.downcase.to_sym
+          #       set_resource_param(:resource_params_key, key)
+          #     end
+          #   else
+          #     set_resource_param(:resource_params_key, key)
+          #   end
+          #   key
+          # end
 
           def resource_params_attributes(*attributes, &block)
             if attributes.blank? && !block_given?
@@ -271,14 +266,14 @@ module Plugins
             end
           end
 
-          def got_resource_callback proc = nil, &block
+          def after_fetch_resource proc = nil, &block
             if proc.blank? && !block_given?
-              self.resourceful_params[:got_resource_callback]
+              self.resourceful_params[:after_fetch_resource]
             else
               if block_given?
-                set_resource_param :got_resource_callback, block
+                set_resource_param :after_fetch_resource, block
               else
-                set_resource_param :got_resource_callback, proc
+                set_resource_param :after_fetch_resource, proc
               end
             end
           end
@@ -332,7 +327,7 @@ module Plugins
           def _set_resource(context)
             return unless @_resource.nil?
             _define_context(context)
-            var_name = get_value(:model_klass).demodulize.underscore.downcase
+            var_name = _model_klass.demodulize.underscore.downcase
             # var_name = class_context do |context|
             #   context.model_klass.demodulize.underscore.downcase
             # end
@@ -343,12 +338,12 @@ module Plugins
           def _get_resource
             got_resource = _identifier_param_present? ? _existing_resource : _new_resource
             # if (class_context do |context|
-            #       context.got_resource_callback.respond_to?(:call)
+            #       context.after_fetch_resource.respond_to?(:call)
             #     end)
-            #   got_resource_callback = class_context do |context| context.got_resource_callback end
-            #   instance_exec(got_resource, &got_resource_callback)
+            #   after_fetch_resource = class_context do |context| context.after_fetch_resource end
+            #   instance_exec(got_resource, &after_fetch_resource)
             # end
-            get_value(:got_resource_callback, got_resource) || got_resource
+            get_value(:after_fetch_resource, got_resource) || got_resource
             got_resource
           end
 
@@ -366,28 +361,18 @@ module Plugins
           def _resource_identifier
             identifier = get_value :resource_identifier
             if identifier.blank?
-              identifier = model_klass_constant.primary_key
+              identifier = model_class_constant.primary_key
             end
             identifier
           end
 
           def _new_resource
             if(class_context)
-              class_context.model_klass_constant.new _resource_params
+              model_class_constant.new _resource_params
             end
           end
 
           def model_class_constant
-            class_context.model_klass_constant
-          end
-
-          def _model_klass
-            model_klass = get_value :model_klass
-            model_klass
-          end
-
-          def model_klass_constant
-            return @_model_klass if @_model_klass
             klass = _model_klass
             if class_context.class_exists?(klass)
               @_model_klass = klass.constantize
@@ -396,6 +381,11 @@ module Plugins
             end
           rescue
             raise { ActiveRecord::RecordNotFound }
+          end
+
+          def _model_klass
+            model_klass = get_value :model_klass
+            model_klass
           end
 
           def posts
@@ -473,7 +463,7 @@ module Plugins
 
           def _query
             if(class_context)
-              model = _apply_query_includes(model_klass_constant)
+              model = _apply_query_includes(model_class_constant)
               query = get_value(:query_scope, model.where.not(id: nil)) || model.where.not(id: nil)
               if(params[:order_by])
                 query = query.order params[:order_by]
@@ -499,7 +489,7 @@ module Plugins
           end
 
           def model_class
-            class_context.model_klass_constant
+            model_class_constant
           end
 
           def _identifier
@@ -518,8 +508,8 @@ module Plugins
                 # end
                 par = { "#{finder_key}": params[id] }
                 resource_friendly= get_value(:resource_friendly)
-                if resource_friendly && model_klass_constant.included_modules.include?("FriendlyId::Slugged")
-                #if class_context.resource_friendly? && model_klass_constant.included_modules.include?("FriendlyId::Slugged")
+                if resource_friendly && model_class_constant.included_modules.include?("FriendlyId::Slugged")
+                #if class_context.resource_friendly? && model_class_constant.included_modules.include?("FriendlyId::Slugged")
                   par[id]
                 else
                   par
@@ -535,8 +525,8 @@ module Plugins
           def _existing_resource
             if class_context
               resource_friendly = get_value :resource_friendly
-              if resource_friendly && model_klass_constant.included_modules.include?("FriendlyId::Slugged")
-              #if class_context.resource_friendly? && class_context.model_klass_constant.included_modules.include?("FriendlyId::Slugged")
+              if resource_friendly && model_class_constant.included_modules.include?("FriendlyId::Slugged")
+              #if class_context.resource_friendly? && class_context.model_class_constant.included_modules.include?("FriendlyId::Slugged")
                 resource = _query.friendly.find(_identifier)
               else
                 resource = _query.send('find_by!', _identifier)
@@ -591,9 +581,7 @@ module Plugins
           end
 
           def resources
-            var_name = class_context do |context|
-              context.model_klass.demodulize.underscore.pluralize
-            end
+            var_name = _model_klass.demodulize.underscore.pluralize
             return instance_variable_get("@#{var_name}")
           end
 
@@ -602,9 +590,7 @@ module Plugins
           end
 
           def resource
-            var_name = class_context do |context|
-              context.model_klass.demodulize.underscore.downcase
-            end
+            var_name = _model_klass.demodulize.underscore.downcase
             return instance_variable_get("@#{var_name}")
           end
 

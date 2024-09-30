@@ -11,7 +11,12 @@ module Plugins
           rescue_from ActiveRecord::RecordNotFound do |e|
             present_error "Record not found", 404
           end
+          class_attribute :engine_namespace
+          self.engine_namespace = self.name.split("::")[0]
+        end
 
+        def engine_namespace
+          self.class.name.split("::")[0]
         end
 
         def present_error message = "Error", status = 500
@@ -41,11 +46,11 @@ module Plugins
         end
 
         def default_presenter_class
-          default = self.class.name.gsub("#{Plugins.config.engine_namespace}::", "")
+          default = self.class.name.gsub("#{engine_namespace}::", "")
           default = default.split("::")
           default.pop
           default << controller_name.classify
-          default.unshift(Plugins.config.engine_namespace, "Controllers", "Presenters")
+          default.unshift(engine_namespace, "Controllers", "Presenters")
           default.join("::")
         end
 

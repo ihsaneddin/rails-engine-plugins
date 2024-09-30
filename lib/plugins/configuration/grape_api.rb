@@ -4,28 +4,6 @@ module Plugins
   module Configuration
     module GrapeApi
 
-      mattr_accessor :authenticate
-      @@authenticate = -> { nil }
-
-      mattr_accessor :base_api_class
-      @@base_api_class= nil
-
-      class << self
-
-        def authenticate! &block
-          @@authenticate = block
-        end
-
-        def setup &block
-          block.arity.zero? ? instance_eval(&block) : yield(self)
-        end
-
-        def draw_callbacks &block
-          callback_set.draw_callbacks(&block)
-        end
-
-      end
-
       module Pagination
 
         class << self
@@ -167,16 +145,13 @@ module Plugins
 
       end
 
-      mattr_accessor :pagination
-      @@pagination = Pagination
-      mattr_accessor :base_controller
-      @@base_controller_name = "base_controller"
-
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
-        CALLBACKS = ['prepend_before_action', 'before_action', 'after_action', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'presenter', 'should_paginate', 'resource_params_attributes']
+        CALLBACKS = ['before', 'before_validation', 'after_validation', 'after', 'finally', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate', 'resource_params_attributes', 'set_presenter']
 
-        def self.draw_callbacks(constraints = {base: Plugins::Configuration.engine_namespace}, &block)
+        class_attribute :base
+
+        def self.draw_callbacks(constraints = {base: self.base}, &block)
           raise "engine namespace is not provided" unless constraints[:base]
           super constraints, &block
         end
@@ -191,7 +166,7 @@ module Plugins
 
         def initialize(name, _namespace: [], **_options, &_block)
           super
-          @class = "#{@class}_controller"
+          @class = "#{@class}"
         end
 
         def call context
@@ -203,10 +178,10 @@ module Plugins
               if options[:override] == true
                 value = block
               else
-                if value.is_a?(Plugins::Controllers::Concerns::Resourceful::Blocks)
+                if value.is_a?(Plugins::Grape::Concerns::Resourceful::Blocks)
                   value.blocks << block
                 else
-                  value = Plugins::Controllers::Concerns::Resourceful::Blocks.new([value, block])
+                  value = Plugins::Grape::Concerns::Resourceful::Blocks.new([value, block])
                 end
               end
             else
@@ -220,13 +195,49 @@ module Plugins
         end
 
         def default_class
-          Plugins::Configuration::Api.base_controller_name
+          Plugins::Configuration::GrapeApi.base_endpoint_class
         end
 
       end
 
-      mattr_accessor :callback_set
-      @@callback_set = ApiCallbackSet
+      module Core
+
+        def self.included base
+          base.mattr_accessor :authenticate
+          base.mattr_accessor :base_api_class
+          base.mattr_accessor :pagination
+          base.mattr_accessor :base_endpoint_class
+          base.mattr_accessor :callback_set
+
+          base.authenticate = -> { nil }
+          base.base_api_class = nil
+          base.pagination = Plugins::Configuration::GrapeApi::Pagination
+          base.base_endpoint_class = "base"
+          base.callback_set= Plugins::Configuration::GrapeApi::ApiCallbackSet
+
+          base.extend ClassMethods
+
+        end
+
+        module ClassMethods
+          def authenticate! &block
+            self.authenticate= block
+          end
+
+          def setup &block
+            if block_given?
+              block.arity.zero? ? instance_eval(&block) : yield(self)
+            end
+          end
+
+          def draw_callbacks &block
+            callback_set.draw_callbacks(constraints={base: self.name.split("::")[0]}, &block)
+          end
+        end
+
+      end
+
+      include Core
 
     end
   end

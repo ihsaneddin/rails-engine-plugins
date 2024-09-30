@@ -4,25 +4,6 @@ module Plugins
   module Configuration
     module Api
 
-      mattr_accessor :authenticate
-      @@authenticate = -> { nil }
-
-      class << self
-
-        def authenticate! &block
-          @@authenticate = block
-        end
-
-        def setup &block
-          block.arity.zero? ? instance_eval(&block) : yield(self)
-        end
-
-        def draw_callbacks &block
-          callback_set.draw_callbacks(&block)
-        end
-
-      end
-
       module Pagination
 
         class << self
@@ -164,16 +145,13 @@ module Plugins
 
       end
 
-      mattr_accessor :pagination
-      @@pagination = Pagination
-      mattr_accessor :base_controller
-      @@base_controller_name = "base_controller"
-
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
         CALLBACKS = ['prepend_before_action', 'before_action', 'after_action', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'presenter', 'should_paginate', 'resource_params_attributes']
 
-        def self.draw_callbacks(constraints = {base: Plugins::Configuration.engine_namespace}, &block)
+        class_attribute :base
+
+        def self.draw_callbacks(constraints = {base: self.base}, &block)
           raise "engine namespace is not provided" unless constraints[:base]
           super constraints, &block
         end
@@ -222,8 +200,44 @@ module Plugins
 
       end
 
-      mattr_accessor :callback_set
-      @@callback_set = ApiCallbackSet
+      module Core
+
+        def self.included base
+          base.mattr_accessor :authenticate
+          base.mattr_accessor :base_api_class
+          base.mattr_accessor :pagination
+          base.mattr_accessor :base_controller_name
+          base.mattr_accessor :callback_set
+
+          base.authenticate = -> { nil }
+          base.base_api_class = nil
+          base.pagination = Plugins::Configuration::Api::Pagination
+          base.base_controller_name = "base_controller"
+          base.callback_set= Plugins::Configuration::Api::ApiCallbackSet
+
+          base.extend ClassMethods
+
+        end
+
+        module ClassMethods
+          def authenticate! &block
+            self.authenticate= block
+          end
+
+          def setup &block
+            if block_given?
+              block.arity.zero? ? instance_eval(&block) : yield(self)
+            end
+          end
+
+          def draw_callbacks &block
+            callback_set.draw_callbacks(&block)
+          end
+        end
+
+      end
+
+      include Core
 
     end
   end

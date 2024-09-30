@@ -8,5 +8,5 @@ if defined?(Grape::API)
     Grape::API
   end
 
-  klass.send(:include, Plugins::Grape)
+  #klass.send(:include, Plugins::Grape)
 end

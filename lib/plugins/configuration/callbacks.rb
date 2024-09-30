@@ -204,6 +204,8 @@ module Plugins
       module Attacher
 
         def self.included base
+          base.class_attribute :callback_applied
+          base.callback_applied = {}
           base.extend ClassMethods
           base.class_attribute :callback_set
           base.callback_set = Plugins::Configuration::Callbacks::CallbackSet
@@ -214,6 +216,7 @@ module Plugins
           def inherited(subclass)
             self.apply_kallbacks!
             TracePoint.trace(:end) do |t|
+              puts t.self
               if subclass == t.self
                 subclass.apply_kallbacks!
                 t.disable
@@ -223,8 +226,11 @@ module Plugins
           end
 
           def apply_kallbacks!
-            kallbacks.each do |callback|
-              callback.call(self)
+            unless self.callback_applied[self.name]
+              kallbacks.each do |callback|
+                callback.call(self)
+              end
+              self.callback_applied[self.name] = true
             end
           end
 

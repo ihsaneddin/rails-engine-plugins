@@ -19,7 +19,7 @@ module Plugins
           end
 
           def api_current_user
-            @api_current_user ||= instance_exec(&Plugins.config.grape_api.authenticate)
+            @api_current_user ||= instance_exec(&grape_api_config.authenticate)
           end
 
           def reject_unauthenticated!

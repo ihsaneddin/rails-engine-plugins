@@ -4,9 +4,11 @@ module Plugins
 
       class Delegator
         attr_reader :backend
+        attr_reader :namespace
 
-        def initialize
+        def initialize(namespace: nil)
           @backend = ActiveSupport::Notifications
+          @namespace = namespace
         end
 
         def configure(&block)
@@ -51,16 +53,15 @@ module Plugins
         end
 
         def name_with_namespace(name, delimiter: ".")
-          raise "engine namespace is not provided" unless Plugins::Configuration.engine_namespace
-          [Plugins::Configuration::engine_namespace, name].compact.join(delimiter)
+          [@namespace, name].compact.join(delimiter)
         end
       end
 
       class << self
         delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
-        def delegator
-          @delegator ||= Delegator.new
+        def delegator(namespace=nil)
+          @delegator ||= Delegator.new(namespace: namespace)
         end
 
       end
