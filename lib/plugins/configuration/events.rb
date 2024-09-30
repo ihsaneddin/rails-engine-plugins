@@ -11,7 +11,8 @@ module Plugins
           @namespace = namespace
         end
 
-        def configure(&block)
+        def configure(namespace= nil, &block)
+          @namespace= namespace if namespace
           raise ArgumentError, "must provide a block" unless block
           block.arity.zero? ? instance_eval(&block) : yield(self)
         end
@@ -60,8 +61,8 @@ module Plugins
       class << self
         delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
-        def delegator(namespace=nil)
-          @delegator ||= Delegator.new(namespace: namespace)
+        def delegator
+          @delegator ||= Delegator.new()
         end
 
       end

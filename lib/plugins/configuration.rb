@@ -38,6 +38,10 @@ module Plugins
           block.arity.zero? ? instance_eval(&block) : yield(self)
         end
 
+        def configure_events &block
+          events.configure("Pos", &block)
+        end
+
         def api &block
           if block_given?
             api.setup(&block)
