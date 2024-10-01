@@ -216,7 +216,6 @@ module Plugins
           def inherited(subclass)
             self.apply_kallbacks!
             TracePoint.trace(:end) do |t|
-              puts t.self
               if subclass == t.self
                 subclass.apply_kallbacks!
                 t.disable

@@ -14,16 +14,16 @@ module Plugins
 
           def authenticate!
             unless skip_authentication!
-              api_current_user ? api_current_user : reject_unauthenticated!
+              current_user ? current_user : reject_unauthenticated!
             end
           end
 
-          def api_current_user
-            @api_current_user ||= instance_exec(&grape_api_config.authenticate)
+          def current_user
+            @current_user ||= instance_exec(&grape_api_config.authenticate)
           end
 
           def reject_unauthenticated!
-            raise Plugins::Errors::ApiAuthenticationError unless api_current_user
+            raise Plugins::Errors::ApiAuthenticationError unless current_user
           end
 
           def skip_authentication!
