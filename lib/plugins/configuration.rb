@@ -25,10 +25,12 @@ module Plugins
         base.mattr_accessor :api
         base.mattr_accessor :grape_api
         base.mattr_accessor :permission_set_class
+        base.mattr_accessor :permission_class
         base.events= Plugins::Configuration::Events
         base.api= Plugins::Configuration::Api
         base.grape_api= Plugins::Configuration::GrapeApi
         base.permission_set_class = Plugins::Configuration::Permissions::PermissionSet
+        base.permission_class= Plugins::Configuration::Permissions::Permission
         base.extend ClassMethods
       end
 
@@ -59,6 +61,7 @@ module Plugins
         end
 
         def draw_permissions &block
+          permission_set_class.permission_class= self.permission_class
           permission_set_class.draw_permissions(&block)
         end
       end

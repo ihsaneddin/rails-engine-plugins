@@ -192,8 +192,12 @@ module Plugins
 
         module ClassMethods
 
-          def set_presenter presenter
-            self.presenter_name = presenter
+          def set_presenter presenter=nil, &block
+            if block_given?
+              self.presenter_name= block
+            else
+              self.presenter_name = presenter
+            end
             context = self
             after_validation do
               _define_context(context)

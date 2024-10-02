@@ -12,16 +12,6 @@ module Plugins
           @namespace = _namespace
           @priority = _priority
           @callable = _callable
-          options = _options
-          return unless _callable
-
-          @model_name = options[:model_name]
-          @subject = options[:subject]
-          @action = options[:action] || name
-          @condition_proc = options[:condition_proc]
-          @if = options[:if]
-          @options = options.except(:model, :model_name, :subject, :action, :condition_proc, :if)
-          @block = _block
         end
 
         def call(_context, *)
@@ -31,16 +21,13 @@ module Plugins
         delegate :hash, to: :instance_values
 
         def ==(other)
-          return false unless other.is_a?(Plugins::Configuration::Api::Permission)
+          return false unless other.is_a?(Plugins::Configuration::Permissions::Permission)
 
           instance_values == other.instance_values
         end
 
-        def block_attached?
-          !!@block
-        end
-
         alias eql? ==
+
       end
 
       class ComputedPermissions
@@ -79,9 +66,16 @@ module Plugins
           attributes.select { |_, v| v }.keys
         end
 
+        # def computed_permissions(include_nesting: true)
+        #   permissions = self.class.registered_permissions.values
+        #   permissions.concat self.class.nested_classes.values.map{|v| v.new.computed_permissions}.flatten! if include_nesting && self.class.nested_classes.any?
+
+        #   ComputedPermissions.new(permissions)
+        # end
+
         def computed_permissions(include_nesting: true)
-          permissions = self.class.registered_permissions.values
-          permissions.concat self.class.nested_classes.values.map{|v| v.new.computed_permissions}.flatten! if include_nesting && self.class.nested_classes.any?
+          permissions = self.class.registered_permissions.slice(*permitted_permission_names).values
+          permissions.concat nested_attributes.values.map(&:computed_permissions).flatten! if include_nesting && nested_attributes.any?
 
           ComputedPermissions.new(permissions)
         end
@@ -93,7 +87,7 @@ module Plugins
           end
 
           def permission_class
-            Permission
+            @permission_class || Permission
           end
 
           def permission_class=(klass)
@@ -116,7 +110,6 @@ module Plugins
 
           def register_permission(name, default = false, options = {}, &block)
             raise ArgumentError, "`name` can't be blank" if name.blank?
-
             attribute name, :boolean, default: default
             registered_permissions[name] = permission_class.new name, **options, &block
           end
@@ -130,6 +123,9 @@ module Plugins
       end
 
       class Mapper
+
+        attr_accessor :permission_set
+
         def initialize(set, constraints = {})
           @constraints = constraints
           @constraints[:_namespace] ||= []
@@ -154,6 +150,7 @@ module Plugins
             else
               klass_name = constraints[:_namespace].map { |n| n.to_s.classify }.join("::")
               klass = PermissionSet.derive klass_name
+              klass.permission_class= @set.permission_class
               @set.embeds_one(name, anonymous_class: klass)
 
               klass
@@ -165,11 +162,8 @@ module Plugins
         end
       end
 
-      mattr_accessor :permission_set
-      @@permission_set = PermissionSet
-
       def draw_permissions &block
-        permission_set.draw_permissions(&block)
+        @set.draw_permissions(&block)
       end
 
     end
