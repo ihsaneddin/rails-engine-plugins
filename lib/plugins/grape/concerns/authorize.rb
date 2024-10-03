@@ -5,39 +5,6 @@ module Plugins
 
         def self.included(base)
           base.helpers HelperMethods
-          # unless base.respond_to?(:defined_permissions)
-          #   base.class_attribute :defined_permissions
-          # end
-          # base.helpers do
-          #   def define_permissions(permissions)
-          #     @defined_permissions = permissions
-          #   end
-
-          #   def defined_permissions
-          #     @defined_permissions
-          #   end
-
-          #   def get_defined_permissions
-          #     _permissions = case defined_permissions
-          #       when Proc
-          #         instance_exec(_permissions)
-          #       else
-          #         _permissions
-          #       end
-          #     return if _permissions.nil?
-          #     if _permissions.is_?(Plugins::Configuration::Permissions::PermissionSet)
-          #       raise "Invalid permissions"
-          #     end
-          #     _permissions
-          #   end
-          # end
-          # permissions = base.defined_permissions
-          # base.before do
-          #   define_permissions(defined_permissions)
-          # end
-          # base.after_validation do
-          #   authorize_route!
-          # end
         end
 
         module HelperMethods

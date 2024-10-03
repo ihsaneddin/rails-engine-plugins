@@ -86,32 +86,16 @@ module Plugins
             fetch_resources!(({only: only, except: except}))
           end
 
-          def actions_resolve(only=nil, except=nil)
-            action_name = route.options(:action)
-            return true unless action_name
-            return true if only.nil? && except.nil?
-            if only.present?
-              only = [only].flatten
-              only.any?{|o| o.to_s == action_name.to_s }
-            else
-              if except.present?
-                except = [except].flatten
-                except.any?{|e| e.to_s != action_name.to_s }
-              end
-            end
-          end
-
           def fetch_resource!(args = {}, &block)
             only = args.delete(:only) || resource_actions
             except = args.delete(:except)
-            context = self
             prc = block
-            context.resourceful_params_merge!(args)
-            context.instance_exec(&prc) if block_given?
+            self.resourceful_params_merge!(args)
+            self.instance_exec(&prc) if block_given?
             after_validation do
               unless route.settings[:skip_resource]
                 if actions_resolve(only, except)
-                  _set_resource(context)
+                  _set_resource()
                 end
               end
             end
@@ -120,14 +104,13 @@ module Plugins
           def fetch_resources!(args= {}, &block)
             only = args.delete(:only) || resources_actions
             except = args.delete(:except)
-            context = self
             prc = block
-            context.resourceful_params_merge!(resourceful_params)
-            context.instance_exec(&prc) if block_given?
+            self.resourceful_params_merge!(resourceful_params)
+            self.instance_exec(&prc) if block_given?
             after_validation do
               unless route.settings[:skip_resources]
                 if actions_resolve(only, except)
-                  _set_resources(context)
+                  _set_resources()
                 end
               end
             end
@@ -357,6 +340,21 @@ module Plugins
 
         module HelperMethods
 
+          def actions_resolve(only=nil, except=nil)
+            action_name = route.options[:action]
+            return true unless action_name
+            return true if only.nil? && except.nil?
+            if only.present?
+              only = [only].flatten
+              only.any?{|o| o.to_s == action_name.to_s }
+            else
+              if except.present?
+                except = [except].flatten
+                except.any?{|e| e.to_s != action_name.to_s }
+              end
+            end
+          end
+
           def get_value key, arg = nil
             value = class_context do |context|
               context.resourceful_params key.to_sym
@@ -382,9 +380,9 @@ module Plugins
             @declared_permitted_params ||= declared(params, include_missing: false, include_parent_namespaces: false)
           end
 
-          def _set_resource(context)
+          def _set_resource(context=nil)
             return unless @_resource.nil?
-            _define_context(context)
+            #_define_context(context)
             var_name = _model_klass.demodulize.underscore.downcase
             # var_name = class_context do |context|
             #   context.model_klass.demodulize.underscore.downcase
@@ -596,9 +594,9 @@ module Plugins
             end
           end
 
-          def _set_resources(context)
+          def _set_resources()
             return unless @_resources.nil?
-            _define_context(context)
+            #_define_context(context)
             var_name = get_value(:model_klass).demodulize.underscore.downcase.pluralize
             # var_name = class_context do |context|
             #   context.model_klass.demodulize.underscore.downcase.pluralize
@@ -616,23 +614,23 @@ module Plugins
             _query
           end
 
-          def class_context &block
-            if self.class.respond_to?(:context) && self.class.context
-              block_given?? yield(self.class.context) : self.class.context
-            end
-          end
+          # def class_context &block
+          #   if self.class.respond_to?(:context) && self.class.context
+          #     block_given?? yield(self.class.context) : self.class.context
+          #   end
+          # end
 
-          def _define_context(context = null)
-            if(context)
-              unless self.class.respond_to?(:context)
-                self.class.class_eval do
-                  class_attribute :context
-                  self.context = context
-                end
-              end
-            end
-            self.class.context
-          end
+          # def _define_context(context = null)
+          #   if(context)
+          #     unless self.class.respond_to?(:context)
+          #       self.class.class_eval do
+          #         class_attribute :context
+          #       end
+          #     end
+          #     self.class.context = context
+          #   end
+          #   self.class.context
+          # end
 
           def records
             resources

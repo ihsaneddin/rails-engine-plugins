@@ -63,7 +63,7 @@ module Plugins
 
       class PermissionSet < OptionsModel::Base
         def permitted_permission_names
-          attributes.select { |_, v| v }.keys
+          self.attributes.select { |_, v| v }.keys
         end
 
         # def computed_permissions(include_nesting: true)
@@ -74,9 +74,9 @@ module Plugins
         # end
 
         def computed_permissions(include_nesting: true)
+          self.to_h # THIS IS IMPORTANT FOR SOME REASON THE DATA IS NOT LOADED
           permissions = self.class.registered_permissions.slice(*permitted_permission_names).values
-          permissions.concat nested_attributes.values.map(&:computed_permissions).flatten! if include_nesting && nested_attributes.any?
-
+          permissions.concat self.nested_attributes.values.map(&:computed_permissions).flatten! if include_nesting && self.nested_attributes.any?
           ComputedPermissions.new(permissions)
         end
 

@@ -6,8 +6,6 @@ module Plugins
         def self.included base
           base.class_eval do
             class_attribute :presenter_name
-            class_attribute :engine_namespace
-            self.engine_namespace = self.name.split("::")[0]
           end
           base.extend ClassMethods
           ::Grape::Endpoint.include HelperMethods if defined? ::Grape::Endpoint
@@ -16,7 +14,17 @@ module Plugins
         module HelperMethods
 
           def get_context_presenter_name
-            if self.try(:class_context)
+            # if self.try(:class_context)
+            #   class_context do |context|
+            #     presenter_name = context.presenter_name
+            #     case presenter_name
+            #     when Proc
+            #       instance_exec(&presenter_name)
+            #     else
+            #       presenter_name
+            #     end
+            #   end
+            # end
               class_context do |context|
                 presenter_name = context.presenter_name
                 case presenter_name
@@ -26,7 +34,6 @@ module Plugins
                   presenter_name
                 end
               end
-            end
           end
 
           def get_context_engine_namespace
@@ -197,10 +204,6 @@ module Plugins
               self.presenter_name= block
             else
               self.presenter_name = presenter
-            end
-            context = self
-            after_validation do
-              _define_context(context)
             end
           end
 

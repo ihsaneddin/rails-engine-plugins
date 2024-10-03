@@ -5,7 +5,11 @@ module Plugins
     extend ActiveSupport::Concern
 
     class_methods do
-      def use_plugins_controllers
+      def use_plugins_controllers(config = Plugins::Configuration::Api)
+
+        class_attribute :api_config
+        self.api_config= config
+
         include Plugins::Controllers::Concerns::Authenticate
         include Plugins::Controllers::Concerns::Resourceful
         include Plugins::Configuration::Callbacks::Attacher

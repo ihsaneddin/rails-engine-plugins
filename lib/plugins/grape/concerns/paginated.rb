@@ -25,6 +25,7 @@ module Plugins
 
         module PaginationHelpers
           def paginate(collection)
+            Helpers.config=
             per_page = Helpers.config.per_page_param(params) || route_setting(:per_page) || Helpers.config.per_page_count
 
             options = {
@@ -58,8 +59,12 @@ module Plugins
         module Helpers
           class << self
 
+            def config=cfg
+              @config= cfg
+            end
+
             def config
-              Plugins.config.grape_api.pagination.config
+              @config || Plugins.config.grape_api.pagination.config
             end
 
             def paginate(collection, options = {})

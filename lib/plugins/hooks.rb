@@ -1,3 +1,4 @@
+require 'byebug'
 begin; require 'grape'; rescue LoadError; end
 if defined?(Grape::API)
   require 'plugins/grape'
@@ -7,6 +8,5 @@ if defined?(Grape::API)
   else
     Grape::API
   end
-
-  #klass.send(:include, Plugins::Grape)
+  Grape::API.send(:include, Plugins::Grape)
 end
