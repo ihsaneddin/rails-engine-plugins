@@ -1,26 +1,25 @@
 module Plugins
   module Configuration
-    module Events
+    class Events
 
       class Delegator
         attr_reader :backend
         attr_reader :namespace
 
-        def initialize(namespace: nil)
+        def initialize(namespace= nil)
           @backend = ActiveSupport::Notifications
           @namespace = namespace
         end
 
-        def configure(namespace= nil, &block)
-          @namespace= namespace if namespace
+        def configure(&block)
           raise ArgumentError, "must provide a block" unless block
           block.arity.zero? ? instance_eval(&block) : yield(self)
         end
 
         def subscribe(name, callable = nil, &block)
           callable ||= block
-          # backend.subscribe name_with_namespace(name), NotificationAdapter.new(callable)
-          backend.subscribe to_regexp(name), NotificationAdapter.new(callable)
+          backend.subscribe name_with_namespace(name), NotificationAdapter.new(callable)
+          #backend.subscribe to_regexp(name), NotificationAdapter.new(callable)
         end
 
         def all(callable = nil, &block)
@@ -58,14 +57,17 @@ module Plugins
         end
       end
 
-      class << self
-        delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
-        def delegator
-          @delegator ||= Delegator.new()
-        end
+      delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
+      def initialize(namespace = nil)
+        @namespace = namespace
       end
+
+      def delegator
+        @delegator ||= Delegator.new(@namespace)
+      end
+
     end
   end
 end

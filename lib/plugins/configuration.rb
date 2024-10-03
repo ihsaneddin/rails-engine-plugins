@@ -26,7 +26,7 @@ module Plugins
         base.mattr_accessor :grape_api
         base.mattr_accessor :permission_set_class
         base.mattr_accessor :permission_class
-        base.events= Plugins::Configuration::Events
+        base.events= Plugins::Configuration::Events.new(base.name.split("::")[0].underscore)
         base.api= Plugins::Configuration::Api
         base.grape_api= Plugins::Configuration::GrapeApi
         base.permission_set_class = Plugins::Configuration::Permissions::PermissionSet
@@ -41,7 +41,7 @@ module Plugins
         end
 
         def configure_events &block
-          events.configure("Pos", &block)
+          events.configure(&block)
         end
 
         def api &block

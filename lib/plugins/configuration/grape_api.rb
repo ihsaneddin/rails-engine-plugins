@@ -206,6 +206,7 @@ module Plugins
 
         def self.included base
           base.mattr_accessor :authenticate
+          base.mattr_accessor :authorize
           base.mattr_accessor :base_api_class
           base.mattr_accessor :pagination
           base.mattr_accessor :base_endpoint_class
@@ -223,7 +224,13 @@ module Plugins
 
         module ClassMethods
           def authenticate! &block
-            self.authenticate= block
+            self.authenticate= block if block_given?
+          end
+
+          def authorize! &block
+            if block_given?
+              self.authorize= block
+            end
           end
 
           def setup &block
