@@ -19,7 +19,7 @@ module Plugins
           end
 
           def current_user
-            @current_user ||= instance_exec(&api_config.authenticate)
+            @current_user ||= instance_exec(&api_config.authenticate) if api_config.authenticate.is_a?(Proc)
           end
 
           def reject_unauthenticated!
