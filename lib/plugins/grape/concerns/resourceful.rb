@@ -74,16 +74,16 @@ module Plugins
           end
 
           def set_resource_param key, value
-            self.resourceful_params_[self.to_s] ||= {}
+            self.resourceful_params if self.resourceful_params_[self.to_s].blank?
             self.resourceful_params_[self.to_s][key] = value
           end
 
           def fetch_resource_and_collection! args= {}, &block
-            yield if block_given?
             only = args.delete :only
             except = args.delete :except
-            fetch_resource!({only: only, except: except})
+            yield if block_given?
             fetch_resources!(({only: only, except: except}))
+            fetch_resource!({only: only, except: except})
           end
 
           def fetch_resource!(args = {}, &block)
@@ -105,7 +105,7 @@ module Plugins
             only = args.delete(:only) || resources_actions
             except = args.delete(:except)
             prc = block
-            self.resourceful_params_merge!(resourceful_params)
+            self.resourceful_params_merge!(args)
             self.instance_exec(&prc) if block_given?
             after_validation do
               unless route.settings[:skip_resources]

@@ -25,7 +25,7 @@ module Plugins
 
         module PaginationHelpers
           def paginate(collection)
-            Helpers.config=
+            Helpers.config= self.class.api_config.pagination.config
             per_page = Helpers.config.per_page_param(params) || route_setting(:per_page) || Helpers.config.per_page_count
 
             options = {

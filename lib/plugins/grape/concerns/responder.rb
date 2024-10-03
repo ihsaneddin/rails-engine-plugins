@@ -45,10 +45,6 @@ module Plugins
           end
 
           def default_presenter_class model
-            # debugger
-            # default = model.name.gsub("#{Plugins.config.engine_namespace}::", "")
-            # default = default.split("::")
-            # default.pop
             default = [model.name.demodulize.classify]
             default.unshift(get_context_engine_namespace, "Grape", "Presenters")
             default.join("::")
@@ -179,7 +175,7 @@ module Plugins
           def pagination_info
             hash = {}
             if header
-              config = Plugins.config.grape_api.pagination.config
+              config = self.class.api_config.pagination.config
               hash[config.per_page] = header[config.per_page].to_i
               hash[config.page] = header[config.page].to_i if config.page
               if config.include_total
