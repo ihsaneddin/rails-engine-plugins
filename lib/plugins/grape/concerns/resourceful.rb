@@ -77,52 +77,106 @@ module Plugins
             self.resourceful_params_[self.to_s][key] = value
           end
 
-          def fetch_resource_and_collection!(resourceful_params = {}, &block)
-            fetch_resource! resourceful_params
-            fetch_collection! resourceful_params
-            unless is_executed? :fetch_resource_and_collection!
-              yield if block_given?
-              set_resource_param :executed, resourceful_params(:executed).append(:fetch_resource_and_collection!).uniq
+          def fetch_resource_and_collection! args= {}, &block
+            fetch_resource! args, &block
+            fetch_resources! args, &block
+          end
+
+          def actions_resolve(only=nil, except=nil)
+            action_name = route.options(:action)
+            return true unless action_name
+            return true if only.nil? && except.nil?
+            if only.present?
+              only = [only].flatten
+              only.any?{|o| o.to_s == action_name.to_s }
+            else
+              if except.present?
+                except = [except].flatten
+                except.any?{|e| e.to_s != action_name.to_s }
+              end
             end
           end
 
-          def fetch_resource!(resourceful_params = {}, &block)
-            resourceful_params_merge!(resourceful_params)
-            unless is_executed? :fetch_resource!
-              yield if block_given?
-              set_resource_param :executed, resourceful_params(:executed).append(:fetch_resource!).uniq
-            end
+          def fetch_resource!(args = {}, &block)
+            only = args.delete(:only) || resource_actions
+            except = args.delete(:except)
             context = self
+            prc = block
             after_validation do
               unless route.settings[:skip_resource]
-                _set_resource(context)
+                if actions_resolve(only, except)
+                  context.resourceful_params_merge!(args)
+                  context.instance_exec(&prc) if prc
+                  _set_resource(context)
+                end
               end
             end
           end
 
-          def fetch_collection!(resourceful_params = {}, &block)
-            resourceful_params_merge!(resourceful_params)
-            unless is_executed? :fetch_collection!
-              yield if block_given?
-              set_resource_param :executed, resourceful_params(:executed).append(:fetch_collection!).uniq
-            end
+          def fetch_resources!(args= {}, &block)
+            only = args.delete(:only) || collection_actions
+            except = args.delete(:except)
             context = self
+            prc = block
             after_validation do
-              unless route.settings[:skip_collection]
-                _set_collection(context)
+              unless route.settings[:skip_resources]
+                if actions_resolve(only, except)
+                  context.resourceful_params_merge!(resourceful_params)
+                  context.instance_exec(&prc) if prc
+                  _set_collection(context)
+                end
               end
             end
           end
 
-          def actions(kind: :resource, only: [], except: [], also: [])
-            kind = (kind.to_s + '_actions').to_sym
-            current_params = resourceful_params
-            current_params[kind] = current_params[kind].filter{ |action| only.is_a?(Array) ? only.include?(action) : only.to_s.eql?(action.to_s) } unless only.empty?
-            current_params[kind] = current_params[kind].filter{ |action| except.is_a?(Array) ? !except.include?(action) : !except.to_s.eql?(action.to_s) } unless except.empty?
-            current_params[kind] = (current_params[kind] + also).flatten.uniq unless also.empty?
-            resourceful_params_merge!(current_params)
-            current_params[kind]
-          end
+          # def fetch_resource_and_collection!(resourceful_params = {}, &block)
+          #   fetch_resource! resourceful_params
+          #   fetch_collection! resourceful_params
+          #   unless is_executed? :fetch_resource_and_collection!
+          #     yield if block_given?
+          #     set_resource_param :executed, resourceful_params(:executed).append(:fetch_resource_and_collection!).uniq
+          #   end
+          # end
+
+
+          # def fetch_resource!(args = {}, &block)
+          #   resourceful_params_merge!(args)
+          #   unless is_executed? :fetch_resource!
+          #     yield if block_given?
+          #     set_resource_param :executed, resourceful_params(:executed).append(:fetch_resource!).uniq
+          #   end
+          #   context = self
+          #   after_validation do
+          #     unless route.settings[:skip_resource]
+          #       _set_resource(context)
+          #     end
+          #   end
+          # end
+
+          # def fetch_collection!(resourceful_params = {}, &block)
+          #   resourceful_params_merge!(resourceful_params)
+          #   unless is_executed? :fetch_collection!
+          #     yield if block_given?
+          #     set_resource_param :executed, resourceful_params(:executed).append(:fetch_collection!).uniq
+          #   end
+          #   context = self
+          #   after_validation do
+          #     unless route.settings[:skip_collection]
+          #       _set_collection(context)
+          #     end
+          #   end
+          # end
+
+
+          # def actions(kind: :resource, only: [], except: [], also: [])
+          #   kind = (kind.to_s + '_actions').to_sym
+          #   current_params = resourceful_params
+          #   current_params[kind] = current_params[kind].filter{ |action| only.is_a?(Array) ? only.include?(action) : only.to_s.eql?(action.to_s) } unless only.empty?
+          #   current_params[kind] = current_params[kind].filter{ |action| except.is_a?(Array) ? !except.include?(action) : !except.to_s.eql?(action.to_s) } unless except.empty?
+          #   current_params[kind] = (current_params[kind] + also).flatten.uniq unless also.empty?
+          #   resourceful_params_merge!(current_params)
+          #   current_params[kind]
+          # end
 
           def resource_actions
             self.resourceful_params[:resource_actions]
