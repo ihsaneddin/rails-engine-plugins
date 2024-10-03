@@ -50,7 +50,7 @@ module Plugins
                 query_includes: nil,
                 query_scope: nil,
                 resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
-                collection_actions: [ :index ],
+                resources_actions: [ :index ],
                 after_fetch_resource: nil,
                 should_paginate: true,
               }
@@ -74,12 +74,16 @@ module Plugins
           end
 
           def set_resource_param key, value
+            self.resourceful_params_[self.to_s] ||= {}
             self.resourceful_params_[self.to_s][key] = value
           end
 
           def fetch_resource_and_collection! args= {}, &block
-            fetch_resource! args, &block
-            fetch_resources! args, &block
+            yield if block_given?
+            only = args.delete :only
+            except = args.delete :except
+            fetch_resource!({only: only, except: except})
+            fetch_resources!(({only: only, except: except}))
           end
 
           def actions_resolve(only=nil, except=nil)
@@ -102,11 +106,11 @@ module Plugins
             except = args.delete(:except)
             context = self
             prc = block
+            context.resourceful_params_merge!(args)
+            context.instance_exec(&prc) if block_given?
             after_validation do
               unless route.settings[:skip_resource]
                 if actions_resolve(only, except)
-                  context.resourceful_params_merge!(args)
-                  context.instance_exec(&prc) if prc
                   _set_resource(context)
                 end
               end
@@ -114,16 +118,16 @@ module Plugins
           end
 
           def fetch_resources!(args= {}, &block)
-            only = args.delete(:only) || collection_actions
+            only = args.delete(:only) || resources_actions
             except = args.delete(:except)
             context = self
             prc = block
+            context.resourceful_params_merge!(resourceful_params)
+            context.instance_exec(&prc) if block_given?
             after_validation do
               unless route.settings[:skip_resources]
                 if actions_resolve(only, except)
-                  context.resourceful_params_merge!(resourceful_params)
-                  context.instance_exec(&prc) if prc
-                  _set_collection(context)
+                  _set_resources(context)
                 end
               end
             end
@@ -182,8 +186,8 @@ module Plugins
             self.resourceful_params[:resource_actions]
           end
 
-          def collection_actions
-            self.resourceful_params[:collection_actions]
+          def resources_actions
+            self.resourceful_params[:resources_actions]
           end
 
           def model_klass(klass = nil, &block)
@@ -592,7 +596,7 @@ module Plugins
             end
           end
 
-          def _set_collection(context)
+          def _set_resources(context)
             return unless @_resources.nil?
             _define_context(context)
             var_name = get_value(:model_klass).demodulize.underscore.downcase.pluralize

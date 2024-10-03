@@ -78,7 +78,8 @@ module Plugins
 
       class CallbackSet < OptionsModel::Base
 
-        CALLBACKS = []
+        BLOCK_CALLBACKS = []
+        CALLBACKS = [] + BLOCK_CALLBACKS
 
         def permitted_callback_names
           attributes.select { |_, v| v }.keys
@@ -122,11 +123,16 @@ module Plugins
           def register_callback(name, options = {}, &block)
             raise ArgumentError, "`name` can't be blank" if name.blank?
             raise ArgumentError, "name #{name} is not included in the list" unless permitted_callback_names.include?(name.to_s)
+
             registered_callbacks[name] = callback_class.new name, **options, &block
           end
 
           def permitted_callback_names
             self::CALLBACKS
+          end
+
+          def required_block_callback_names
+            self::BLOCK_CALLBACKS
           end
 
           PERMITTED_ATTRIBUTE_CLASSES = [Symbol].freeze
@@ -147,9 +153,16 @@ module Plugins
           @callbackset = callbackset
         end
 
-        def callback(name, **options, &block)
-          raise ArgumentError, "must provide a block" unless block_given?
-          @callbackset.register_callback name, @constraints.merge(options), &block
+        def callback(name, *args, &block)
+          options = args.extract_options!
+          raise ArgumentError, "must provide a block" if args.blank? && !block_given?
+          raise ArgumentError, "block is required for #{name} callback" if @callbackset.required_block_callback_names.include?(name.to_s) && !block_given?
+          if args[0].present?
+            prc = Proc.new{ args[0] }
+            @callbackset.register_callback name, @constraints.merge(options), &prc
+          else
+            @callbackset.register_callback name, @constraints.merge(options), &block
+          end
           self
         end
 

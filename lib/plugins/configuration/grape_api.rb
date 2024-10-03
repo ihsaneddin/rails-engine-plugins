@@ -147,7 +147,8 @@ module Plugins
 
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
-        CALLBACKS = ['before', 'before_validation', 'after_validation', 'after', 'finally', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate', 'resource_params_attributes', 'set_presenter']
+        BLOCK_CALLBACKS = ['before', 'before_validation', 'after_validation', 'after', 'finally',]
+        CALLBACKS = ['model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate?', 'resource_params_attributes', 'set_presenter', 'resource_actions', 'resources_actions'] + BLOCK_CALLBACKS
 
         class_attribute :base
 
@@ -172,7 +173,7 @@ module Plugins
         def call context
           block = instance_variable_get("@block")
           resourceful_params = context.resourceful_params
-          if resourceful_params.keys.include?(name.to_sym)
+          if (resourceful_params.keys + [:presenter_name]).include?(name.to_sym)
             value = context.send(name)
             if value.is_a?(Proc)
               if options[:override] == true
@@ -189,6 +190,7 @@ module Plugins
             end
             context.set_resource_param(name, value)
           else
+            raise "Must provide block" unless block
             args = options[:args] || []
             context.send name, *args, &block
           end
