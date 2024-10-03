@@ -1,4 +1,3 @@
-require 'byebug'
 begin; require 'grape'; rescue LoadError; end
 if defined?(Grape::API)
   require 'plugins/grape'
