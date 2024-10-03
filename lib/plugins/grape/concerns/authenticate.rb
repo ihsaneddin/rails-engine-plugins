@@ -23,7 +23,7 @@ module Plugins
           end
 
           def reject_unauthenticated!
-            raise Plugins::Errors::ApiAuthenticationError unless current_user
+            raise Plugins::Errors::ApiAuthenticationError unless @current_user
           end
 
           def skip_authentication!
