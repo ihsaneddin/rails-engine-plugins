@@ -20,6 +20,7 @@ module Plugins
           def authorize(__resources= :all)
             #opts = env['api.endpoint'].options[:route_options]
             opts = route.options
+            return true unless opts.key?(:authorize)
             if opts.key?(:authorize)
               authorization_opts= opts[:authorize].dup
               if authorization_opts.length == 2
