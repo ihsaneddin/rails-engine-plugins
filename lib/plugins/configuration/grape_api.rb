@@ -240,7 +240,7 @@ module Plugins
           end
 
           def draw_callbacks &block
-            callback_set.draw_callbacks(constraints={base: self.name.split("::")[0]}, &block)
+            callback_set.draw_callbacks(constraints={base: self.base_api_class}, &block)
           end
         end
 
