@@ -14,7 +14,7 @@ module Plugins
           @options = options
           @options[:override] ||= true
           @action = options[:action]
-          @class = options[:class] || default_class
+          @class = options[:class] || default_class.demodulize.underscore
           @block = _block
         end
 

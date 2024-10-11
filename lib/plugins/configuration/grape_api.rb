@@ -147,7 +147,7 @@ module Plugins
 
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
-        BLOCK_CALLBACKS = ['before', 'before_validation', 'after_validation', 'after', 'finally',]
+        BLOCK_CALLBACKS = ['rescue_from', 'before', 'before_validation', 'after_validation', 'after', 'finally',]
         CALLBACKS = ['model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate?', 'resource_params_attributes', 'set_presenter', 'resource_actions', 'resources_actions'] + BLOCK_CALLBACKS
 
         class_attribute :base
@@ -196,8 +196,16 @@ module Plugins
           end
         end
 
+        def self.default_class=klass
+          @default_class= klass
+        end
+
+        def self.default_class
+          @default_class
+        end
+
         def default_class
-          Plugins::Configuration::GrapeApi.base_endpoint_class
+          self.class.default_class || Plugins::Configuration::GrapeApi.base_endpoint_class
         end
 
       end
@@ -207,13 +215,13 @@ module Plugins
         def self.included base
           base.mattr_accessor :authenticate
           base.mattr_accessor :authorize
-          base.mattr_accessor :base_api_class
+          base.mattr_accessor :base_api_namespace
           base.mattr_accessor :pagination
           base.mattr_accessor :base_endpoint_class
           base.mattr_accessor :callback_set
 
           base.authenticate = -> { nil }
-          base.base_api_class = nil
+          base.base_api_namespace = nil
           base.pagination = Plugins::Configuration::GrapeApi::Pagination
           base.base_endpoint_class = "base"
           base.callback_set= Plugins::Configuration::GrapeApi::ApiCallbackSet
@@ -240,7 +248,8 @@ module Plugins
           end
 
           def draw_callbacks &block
-            callback_set.draw_callbacks(constraints={base: self.base_api_class}, &block)
+            callback_set.callback_class.default_class= self.base_endpoint_class
+            callback_set.draw_callbacks(constraints={base: self.base_api_namespace}, &block)
           end
         end
 
