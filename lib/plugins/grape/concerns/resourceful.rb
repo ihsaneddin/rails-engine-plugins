@@ -422,6 +422,14 @@ module Plugins
             identifier
           end
 
+          def _resource_finder_key
+            identifier = get_value :resource_finder_key
+            if identifier.blank?
+              identifier = model_class_constant.primary_key
+            end
+            identifier
+          end
+
           def _new_resource
             if(class_context)
               model_class_constant.new _resource_params
@@ -550,14 +558,14 @@ module Plugins
 
           def _identifier
             if class_context
-              id = get_value :resource_identifier
+              id = _resource_identifier
               #id = class_context.resource_identifier
               # if(id.respond_to?(:call))
               #   id = instance_exec &id
               # end
               id = id.is_a?(String)? id.to_sym : id
               if id.is_a? Symbol
-                finder_key = get_value :resource_finder_key
+                finder_key = _resource_finder_key
                 # finder_key = class_context.resource_finder_key
                 # if finder_key.respond_to? :call
                 #   finder_key = instance_exec(&finder_key)
