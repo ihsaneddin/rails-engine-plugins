@@ -121,7 +121,7 @@ module Plugins
               end
             end
             raise ArgumentError, "#{presenter_class} should be subclass of #{::Grape::Entity}." unless presenter_class && presenter_class.ancestors.include?(::Grape::Entity)
-            present collection, with: presenter_class, meta: options[:meta], root: options[:root], locals: options[:locals]
+            present collection, with: presenter_class, meta: options[:meta], root: options[:root], locals: options[:locals], only: options[:only], except: options[:except]
           end
 
           def direct_present object, options={}

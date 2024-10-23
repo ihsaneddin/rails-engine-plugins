@@ -60,16 +60,20 @@ module Plugins
                 self.#{class_attribute_key}[key] = value
               end
 
-              def get_#{singular_key} key, arg = nil
+              def get_#{singular_key} key, *args
                 value = self.class.#{plural_key} key.to_s.to_sym
                 if value.is_a?(Proc)
-                  if arg
-                    value = instance_exec(arg, &value)
+                  if args.present?
+                    value = instance_exec(*args, &value)
                   else
                     value = instance_exec(&value)
                   end
                 elsif value.is_a?(Symbol)
-                  value = send(value)
+                  if args.present?
+                    value = send(value, *args)
+                  else
+                    value = send(value)
+                  end
                 end
                 value
               end
