@@ -11,6 +11,7 @@ module Plugins
         self.events_config= config
         include Plugins::Models::Concerns::Eventable
         include Plugins::Models::Concerns::ActsAsDefaultValue
+        include Plugins::Models::Concerns::Preferences
       end
     end
 
