@@ -326,27 +326,39 @@ module Plugins
           end
         end
 
-
-        extend ActiveSupport::Concern
-
-        included do
-          include Plugins::Models::Concerns::Preferences::Preferable
-
-          if method(:serialize).parameters.include?([:key, :type]) # Rails 7.1+
-            serialize :preferences, type: Hash, coder: YAML
-          else
-            serialize :preferences, Hash, coder: YAML
-          end
-
-          after_initialize :initialize_preference_defaults
+        def self.included base
+          base.extend ClassMethods
         end
 
-        private
-
-        def initialize_preference_defaults
-          if has_attribute?(:preferences)
-            self.preferences = default_preferences.merge(preferences)
+        module ClassMethods
+          def use_preferences!
+            include UsePreferences
           end
+        end
+
+        module UsePreferences
+          extend ActiveSupport::Concern
+
+          included do
+            include Plugins::Models::Concerns::Preferences::Preferable
+
+            if method(:serialize).parameters.include?([:key, :type]) # Rails 7.1+
+              serialize :preferences, type: Hash, coder: YAML
+            else
+              serialize :preferences, Hash, coder: YAML
+            end
+
+            after_initialize :initialize_preference_defaults
+          end
+
+          private
+
+          def initialize_preference_defaults
+            if has_attribute?(:preferences)
+              self.preferences = default_preferences.merge(preferences)
+            end
+          end
+
         end
 
       end

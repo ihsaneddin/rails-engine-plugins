@@ -42,11 +42,11 @@ module Plugins
                 end
               end
 
-              def self.get_#{singular_key} key, arg = nil
+              def self.get_#{singular_key} key, *args
                 value = #{plural_key} key.to_s.to_sym
                 if value.is_a?(Proc)
-                  if arg
-                    value = instance_exec(arg, &value)
+                  if args.present?
+                    value = instance_exec(*arg, &value)
                   else
                     value = instance_exec(&value)
                   end
