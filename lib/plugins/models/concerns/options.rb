@@ -56,6 +56,10 @@ module Plugins
                 value
               end
 
+              def self.get_#{singular_key}(key)
+                #{plural_key} key.to_s.to_sym
+              end
+
               def self.set_#{singular_key} key, value
                 self.#{class_attribute_key}[key] = value
               end
@@ -76,6 +80,10 @@ module Plugins
                   end
                 end
                 value
+              end
+
+              def get_#{singular_key}_value key
+                self.class.#{plural_key} key.to_s.to_sym
               end
             CODE
 
