@@ -54,11 +54,9 @@ module Plugins
           # return message
           #
           def message options={ status: "ok"}
-            status options[:status].to_sym || 201
-            message||= options.delete(:message)
-            {
-              message: message
-            }
+            options[:status] ||= "ok"
+            status options.delete(:status).to_sym || 201
+            options
           end
 
           #
