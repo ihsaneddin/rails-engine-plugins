@@ -56,8 +56,22 @@ module Plugins
                 value
               end
 
-              def self.get_#{singular_key}(key)
-                #{plural_key} key.to_s.to_sym
+              def self.get_#{singular_key}(key, *args)
+                value = #{plural_key} key.to_s.to_sym
+                if value.is_a?(Proc)
+                  if args.present?
+                    value = instance_exec(*args, &value)
+                  else
+                    value = instance_exec(&value)
+                  end
+                elsif value.is_a?(Symbol)
+                  if args.present?
+                    value = send(value, *args)
+                  else
+                    value = send(value)
+                  end
+                end
+                value
               end
 
               def self.set_#{singular_key} key, value
