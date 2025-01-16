@@ -23,9 +23,9 @@ module Plugins
               unless self.class.respond_to?(:api_config)
                 self.class.class_eval do
                   class_attribute :api_config
-                  self.api_config = config
                 end
               end
+              self.api_config = config
             end
             self.class.api_config
           end
