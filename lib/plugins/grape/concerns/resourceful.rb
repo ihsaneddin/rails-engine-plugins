@@ -591,14 +591,14 @@ module Plugins
               resource_friendly = get_value :resource_friendly
               if resource_friendly && model_class_constant.included_modules.include?("FriendlyId::Slugged")
               #if class_context.resource_friendly? && class_context.model_class_constant.included_modules.include?("FriendlyId::Slugged")
-                resource = _query.friendly.find(_identifier)
+                _resource_ = _query.friendly.find(_identifier)
               else
-                resource = _query.send('find_by!', _identifier)
+                _resource_ = _query.send('find_by!', _identifier)
               end
-              if resource.nil?
+              if _resource_.nil?
                 raise ActiveRecord::RecordNotFound
               end
-              resource
+              _resource_
             end
           end
 
@@ -641,19 +641,19 @@ module Plugins
           # end
 
           def records
-            resources
+            _resources
           end
 
-          def resources
+          def _resources
             var_name = _model_klass.demodulize.underscore.pluralize
             return instance_variable_get("@#{var_name}")
           end
 
           def record
-            resource
+            _resource
           end
 
-          def resource
+          def _resource
             var_name = _model_klass.demodulize.underscore.downcase
             return instance_variable_get("@#{var_name}")
           end
