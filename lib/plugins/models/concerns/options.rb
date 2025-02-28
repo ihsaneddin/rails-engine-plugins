@@ -3,9 +3,32 @@ module Plugins
     module Concerns
       module Options
 
+        module InheritableClassAttribute
+          extend ActiveSupport::Concern
+
+          class_methods do
+            def inheritable_class_attribute(*attrs)
+              attrs.each do |attr|
+                class_attribute attr
+
+                define_method(:inherited) do |subclass|
+                  super(subclass)
+                  value = send(attr)
+
+                  # Duplicate only if the value is mutable
+                  unless value.nil? || value.frozen? || value.is_a?(Symbol) || value.is_a?(Numeric) || value.is_a?(TrueClass) || value.is_a?(FalseClass)
+                    subclass.send("#{attr}=", value.dup)
+                  end
+                end
+              end
+            end
+          end
+        end
+
         module ClassMethods
 
           def build_options base, key, *opts
+            base.include InheritableClassAttribute
             with_defaults = opts.extract_options!
 
             opts = opts.reduce({}){|_opts, k|
@@ -18,7 +41,7 @@ module Plugins
             class_attribute_key = "_#{key}_opts"
             config_class_key = "#{key}_config_class"
 
-            base.class_attribute class_attribute_key.to_sym
+            base.inheritable_class_attribute class_attribute_key.to_sym
             base.send("#{class_attribute_key}=", opts.merge(with_defaults))
 
             base.class_eval <<-CODE, __FILE__, __LINE__ + 1
@@ -31,7 +54,7 @@ module Plugins
 
               end
 
-              class_attribute '#{config_class_key}'.to_sym
+              inheritable_class_attribute '#{config_class_key}'.to_sym
               self.#{config_class_key} = Config#{key.classify}
 
               def self.#{plural_key} key= nil
@@ -40,6 +63,11 @@ module Plugins
                 else
                   return self.#{class_attribute_key}
                 end
+              end
+
+              def self.merge_#{plural_key} opts = {}
+                merged = self.#{class_attribute_key}.merge(opts)
+                self.send('#{class_attribute_key}=', merged)
               end
 
               def self.get_#{singular_key} key, *args
@@ -127,7 +155,6 @@ module Plugins
         end
 
         extend ClassMethods
-
 
       end
     end
