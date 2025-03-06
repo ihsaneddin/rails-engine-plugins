@@ -11,6 +11,7 @@ module Plugins
         self.api_config= config
 
         include Plugins::Controllers::Concerns::Authenticate
+        include Plugins::Controllers::Concerns::Authorize
         include Plugins::Controllers::Concerns::Resourceful
         include Plugins::Configuration::Callbacks::Attacher
 

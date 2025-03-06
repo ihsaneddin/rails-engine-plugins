@@ -194,8 +194,16 @@ module Plugins
           end
         end
 
+        def self.default_class=klass
+          @default_class= klass
+        end
+
+        def self.default_class
+          @default_class
+        end
+
         def default_class
-          Plugins::Configuration::Api.base_controller_name
+          self.class.default_class || Plugins::Configuration::Api.base_controller_class
         end
 
       end
@@ -204,15 +212,15 @@ module Plugins
 
         def self.included base
           base.mattr_accessor :authenticate
-          base.mattr_accessor :base_api_class
+          base.mattr_accessor :base_api_namespace
+          base.mattr_accessor :base_controller_class
           base.mattr_accessor :pagination
-          base.mattr_accessor :base_controller_name
           base.mattr_accessor :callback_set
 
           base.authenticate = -> { nil }
-          base.base_api_class = nil
+          base.base_api_namespace = nil
           base.pagination = Plugins::Configuration::Api::Pagination
-          base.base_controller_name = "base_controller"
+          base.base_controller_class = "base_controller"
           base.callback_set= Plugins::Configuration::Api::ApiCallbackSet
 
           base.extend ClassMethods
@@ -230,9 +238,15 @@ module Plugins
             end
           end
 
+          # def draw_callbacks &block
+          #   callback_set.draw_callbacks(&block)
+          # end
+
           def draw_callbacks &block
-            callback_set.draw_callbacks(&block)
+            callback_set.callback_class.default_class= self.base_controller_class
+            callback_set.draw_callbacks(constraints={base: self.base_api_namespace}, &block)
           end
+
         end
 
       end
