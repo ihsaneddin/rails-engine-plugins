@@ -6,6 +6,7 @@ module Plugins
     autoload :Permissions, "plugins/configuration/permissions"
     autoload :Api, "plugins/configuration/api"
     autoload :GrapeApi, "plugins/configuration/grape_api"
+    autoload :Bus, "plugins/configuration/bus"
 
     # mattr_accessor :events
     # @@events = Plugins::Configuration::Events
@@ -31,6 +32,9 @@ module Plugins
         base.grape_api= Plugins::Configuration::GrapeApi
         base.permission_set_class = Plugins::Configuration::Permissions::PermissionSet
         base.permission_class= Plugins::Configuration::Permissions::Permission
+
+        base.mattr_accessor :bus
+        base.bus = Plugins::Configuration::Bus
         base.extend ClassMethods
       end
 
@@ -55,6 +59,14 @@ module Plugins
         def grape_api &block
           if block_given?
             grape_api.setup(&block)
+          else
+            super
+          end
+        end
+
+        def bus &block
+          if block_given?
+            bus.setup(&block)
           else
             super
           end

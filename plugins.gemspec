@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'alba'
   spec.add_dependency 'options_model'
   spec.add_dependency "activeentity", ">= 6.1.0"
+  spec.add_dependency "omnes"
 end
