@@ -13,11 +13,18 @@ module Plugins
         end
       end
 
+      def self.setup &block
+        if block_given?
+          #block.arity.zero? ? instance_eval(&block) : yield(self)
+          @@blocks << block
+        end
+      end
+
       def self.apply_setup!
         @@blocks.each do |block|
-          block.arity.zero? ? instance_eval(&block) : yield(self)
+          instance_exec(&block)
         end
-        self.clear_all
+        #self.clear_all
       end
 
       def self.create(name)
