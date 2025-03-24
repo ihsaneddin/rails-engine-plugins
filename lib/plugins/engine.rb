@@ -1,4 +1,4 @@
-require 'plugins/configuration/bus'
+# require 'plugins/configuration/bus'
 module Plugins
   class Engine < ::Rails::Engine
     isolate_namespace Plugins
