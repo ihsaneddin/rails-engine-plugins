@@ -1,5 +1,7 @@
 require "plugins/version"
 require "plugins/engine"
+require 'store_model'
+require 'ransack'
 
 module Plugins
   autoload :Configuration, "plugins/configuration"

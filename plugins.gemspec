@@ -27,4 +27,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'options_model'
   spec.add_dependency "activeentity", ">= 6.1.0"
   spec.add_dependency "omnes"
+  spec.add_dependency "store_model"
+  spec.add_dependency "ransack", '~> 3.1.0'
 end

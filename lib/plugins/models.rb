@@ -12,6 +12,7 @@ module Plugins
         include Plugins::Models::Concerns::Eventable
         include Plugins::Models::Concerns::ActsAsDefaultValue
         include Plugins::Models::Concerns::Preferences
+        include Plugins::Models::Concerns::CustomAttributes
       end
     end
 

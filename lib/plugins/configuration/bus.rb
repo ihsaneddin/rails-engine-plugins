@@ -1,6 +1,5 @@
 module Plugins
   module Configuration
-
     module Bus
 
       @@registered_buses = {}

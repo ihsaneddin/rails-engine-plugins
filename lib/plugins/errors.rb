@@ -4,5 +4,7 @@ module Plugins
     end
     class ApiAuthorizationError < StandardError
     end
+    class UnsupportedAdapterError < StandardError
+    end
   end
 end
