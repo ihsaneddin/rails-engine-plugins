@@ -7,6 +7,7 @@ module Plugins
       autoload :Preferences, "plugins/models/concerns/preferences"
       autoload :CustomAttributes, "plugins/models/concerns/custom_attributes"
       autoload :Config, "plugins/models/concerns/config"
+      autoload :PolymorphicAlternative, "plugins/models/concerns/polymorphic_alternative"
     end
   end
 end

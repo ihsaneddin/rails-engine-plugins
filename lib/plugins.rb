@@ -8,6 +8,7 @@ module Plugins
   autoload :Controllers, "plugins/controllers"
   autoload :Models, "plugins/models"
   autoload :Presenters, "plugins/presenters"
+  autoload :EngineCallbacks, "plugins/engine_callbacks"
   autoload :Errors, "plugins/errors"
 
   mattr_accessor :configuration

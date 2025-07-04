@@ -13,6 +13,7 @@ module Plugins
         include Plugins::Models::Concerns::ActsAsDefaultValue
         include Plugins::Models::Concerns::Preferences
         include Plugins::Models::Concerns::CustomAttributes
+        include Plugins::Models::Concerns::PolymorphicAlternative
       end
     end
 

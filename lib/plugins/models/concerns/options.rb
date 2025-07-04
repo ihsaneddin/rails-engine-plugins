@@ -1,3 +1,4 @@
+require 'byebug'
 module Plugins
   module Models
     module Concerns
@@ -6,23 +7,34 @@ module Plugins
         module InheritableClassAttribute
           extend ActiveSupport::Concern
 
+          included do
+            class_attribute :_inheritable_attributes, instance_accessor: false, default: []
+          end
+
           class_methods do
             def inheritable_class_attribute(*attrs)
+              self._inheritable_attributes += attrs
               attrs.each do |attr|
-                class_attribute attr
+                # Prevent shared accessors
+                class_attribute attr, instance_accessor: false
+              end
+            end
 
-                define_method(:inherited) do |subclass|
-                  super(subclass)
-                  value = send(attr)
+            def inherited(subclass)
+              super
+              _inheritable_attributes.each do |attr|
+                value = send(attr)
+                copied_value = if value.nil? || value.frozen? || value.is_a?(Symbol) || value.is_a?(Numeric) || value == true || value == false
+                                 value
+                               else
+                                 value.dup
+                               end
 
-                  # Duplicate only if the value is mutable
-                  unless value.nil? || value.frozen? || value.is_a?(Symbol) || value.is_a?(Numeric) || value.is_a?(TrueClass) || value.is_a?(FalseClass)
-                    subclass.send("#{attr}=", value.dup)
-                  end
-                end
+                subclass.send("#{attr}=", copied_value)
               end
             end
           end
+
         end
 
         module ClassMethods
