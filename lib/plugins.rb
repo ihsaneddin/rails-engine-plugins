@@ -10,6 +10,7 @@ module Plugins
   autoload :Presenters, "plugins/presenters"
   autoload :EngineCallbacks, "plugins/engine_callbacks"
   autoload :Errors, "plugins/errors"
+  autoload :Decorators, 'plugins/decorators'
 
   mattr_accessor :configuration
   @@configuration = Configuration
@@ -20,6 +21,10 @@ module Plugins
 
   def self.setup &block
     config.setup &block
+  end
+
+  def self.decorators
+    Decorators
   end
 
 end

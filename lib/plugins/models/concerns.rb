@@ -8,6 +8,7 @@ module Plugins
       autoload :CustomAttributes, "plugins/models/concerns/custom_attributes"
       autoload :Config, "plugins/models/concerns/config"
       autoload :PolymorphicAlternative, "plugins/models/concerns/polymorphic_alternative"
+      autoload :IdempotencyLockable, "plugins/models/concerns/idempotency_lockable"
     end
   end
 end

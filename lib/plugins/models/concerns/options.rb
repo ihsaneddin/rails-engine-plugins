@@ -24,15 +24,41 @@ module Plugins
               super
               _inheritable_attributes.each do |attr|
                 value = send(attr)
-                copied_value = if value.nil? || value.frozen? || value.is_a?(Symbol) || value.is_a?(Numeric) || value == true || value == false
-                                 value
-                               else
-                                 value.dup
-                               end
-
+                copied_value = deep_copy(value)
                 subclass.send("#{attr}=", copied_value)
               end
             end
+
+            private
+
+            def deep_copy(value)
+              case value
+              when NilClass, Symbol, Numeric, TrueClass, FalseClass
+                value
+              when Hash
+                value.transform_values { |v| deep_copy(v) }
+              when Array
+                value.map { |v| deep_copy(v) }
+              when Set
+                Set.new(value.map { |v| deep_copy(v) })
+              else
+                value.dup rescue value
+              end
+            end
+
+            def deep_copy(value)
+              case value
+              when Hash
+                value.transform_values { |v| deep_copy(v) }
+              when Array
+                value.map { |v| deep_copy(v) }
+              when Set
+                Set.new(value.map { |v| deep_copy(v) })
+              else
+                value.dup rescue value
+              end
+            end
+
           end
 
         end
