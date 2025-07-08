@@ -14,26 +14,22 @@ module Plugins
         module HelperMethods
 
           def get_context_presenter_name
-            # if self.try(:class_context)
-            #   class_context do |context|
-            #     presenter_name = context.presenter_name
-            #     case presenter_name
-            #     when Proc
-            #       instance_exec(&presenter_name)
-            #     else
-            #       presenter_name
-            #     end
-            #   end
-            # end
-              class_context do |context|
-                presenter_name = context.presenter_name
-                case presenter_name
-                when Proc
-                  instance_exec(&presenter_name)
-                else
-                  presenter_name
-                end
+            p_name = class_context do |context|
+              presenter_name = context.presenter_name
+              case presenter_name
+              when Proc
+                instance_exec(&presenter_name)
+              else
+                presenter_name
               end
+            end
+            if respond_to?(:model_class_constant) && mod = model_class_constant.include?(::Plugins::Models::Concerns::ApiResource)
+              ctx = get_value(:resource_context)
+              if cfg = mod.api_resource_of(ctx)
+                p_name = cfg.presenter
+              end
+            end
+            p_name
           end
 
           def get_context_engine_namespace

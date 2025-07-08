@@ -10,6 +10,7 @@ module Plugins
       autoload :PolymorphicAlternative, "plugins/models/concerns/polymorphic_alternative"
       autoload :IdempotencyLockable, "plugins/models/concerns/idempotency_lockable"
       autoload :RemoteCallbacks, "plugins/models/concerns/remote_callbacks"
+      autoload :ApiResource, "plugins/models/concerns/api_resource"
     end
   end
 end
