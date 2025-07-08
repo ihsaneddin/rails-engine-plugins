@@ -11,6 +11,7 @@ module Plugins
       autoload :IdempotencyLockable, "plugins/models/concerns/idempotency_lockable"
       autoload :RemoteCallbacks, "plugins/models/concerns/remote_callbacks"
       autoload :ApiResource, "plugins/models/concerns/api_resource"
+      autoload :ThreadSafe, "plugins/models/concerns/thread_safe"
     end
   end
 end
