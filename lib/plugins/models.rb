@@ -14,6 +14,7 @@ module Plugins
         include Plugins::Models::Concerns::Preferences
         include Plugins::Models::Concerns::CustomAttributes
         include Plugins::Models::Concerns::PolymorphicAlternative
+        include Plugins::Models::Concerns::RemoteCallbacks
       end
     end
 
