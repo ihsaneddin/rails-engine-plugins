@@ -2,6 +2,7 @@ require "plugins/version"
 require "plugins/engine"
 require 'store_model'
 require 'ransack'
+require 'omnes'
 
 module Plugins
   autoload :Configuration, "plugins/configuration"

@@ -2,20 +2,20 @@ module Plugins
   module Decorators
     module MethodDecorators
       def self.included(base)
+        return if base.instance_variable_defined?(:@_method_decorators_loaded)
         base.extend ClassMethods
-        base.include InheritableClassAttribute
-
+        base.include ::Plugins::Models::Concerns::Options::InheritableClassAttribute
         base.inheritable_class_attribute :_decorator_blocks
         base.inheritable_class_attribute :_decorated_methods
-
         base._decorator_blocks ||= {}
         base._decorated_methods ||= Hash.new { |h, k| h[k] = {} }
+        base.instance_variable_set(:@_method_decorators_loaded, true)
       end
 
       module ClassMethods
         def define_method_decorator(name, &block)
-          _decorator_blocks[name.to_sym] = block
-
+          raise ArgumentError "Block is required!" unless block_given?
+          self._decorator_blocks[name.to_sym] = block
           define_singleton_method(name) do |method_name, **opts, &method_def|
             define_method(method_name, &method_def) if method_def
             decorate_method(method_name, with: name, **opts)
@@ -23,7 +23,8 @@ module Plugins
         end
 
         def decorate_method(method_name, with:, **opts)
-          _decorated_methods[with.to_sym][method_name.to_sym] = opts
+          self._decorated_methods[with.to_sym] ||= {}
+          self._decorated_methods[with.to_sym][method_name.to_sym] = opts
           apply_method_decorator(method_name, with: with.to_sym)
         end
 
@@ -35,7 +36,7 @@ module Plugins
           super if defined?(super)
           return if @_decorator_lock
 
-          _decorated_methods.each do |decorator_name, methods|
+          self._decorated_methods.each do |decorator_name, methods|
             next unless methods.key?(method_name.to_sym)
 
             @_decorator_lock = true
@@ -44,15 +45,34 @@ module Plugins
           end
         end
 
+        def inherited(subclass)
+          super(subclass)
+          subclass._decorator_blocks = _decorator_blocks.deep_dup
+          subclass._decorated_methods = _decorated_methods.deep_dup
+          subclass._decorated_methods.default_proc = proc { |h, k| h[k] = {} }
+        end
+
         private
 
         def apply_method_decorator(method_name, with:)
-          original = instance_method(method_name)
-          decorator = _decorator_blocks[with]
-          opts = _decorated_methods[with][method_name.to_sym]
+          decorator = self._decorator_blocks[with]
+          raise "Unknown method decorator: #{with}" unless decorator
+
+          opts = self._decorated_methods[with][method_name.to_sym]
+
+          original =
+            if method_defined?(method_name) || private_method_defined?(method_name)
+              instance_method(method_name)
+            elsif self.new.respond_to?(method_name, true) # check if it's dynamically defined
+              method_obj = self.new.method(method_name)
+              ->(*args, &block) { method_obj.call(*args, &block) }
+            else
+              raise NameError, "Method #{method_name} is not defined or accessible"
+            end
 
           define_method(method_name) do |*args, &block|
-            instance_exec(method_name, original.bind(self), *args, block, **opts, &decorator)
+            bound_original = original.is_a?(UnboundMethod) ? original.bind(self) : original
+            instance_exec(method_name, bound_original, *args, block, **opts, &decorator)
           end
         end
       end

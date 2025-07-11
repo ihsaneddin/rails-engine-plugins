@@ -9,7 +9,6 @@ module Plugins
       def use_plugins_models(config= Plugins.config.events)
         class_attribute :events_config
         self.events_config= config
-        include Plugins::Models::Concerns::Eventable
         include Plugins::Models::Concerns::ActsAsDefaultValue
         include Plugins::Models::Concerns::Preferences
         include Plugins::Models::Concerns::CustomAttributes

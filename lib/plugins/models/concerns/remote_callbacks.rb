@@ -19,7 +19,7 @@ module Plugins
       #     include RemoteCallbacks
       #
       #     callback_for Entry, :before_validation, :mark_entry
-      #     callback_for Entry, :validate, if: -> { enabled? } do |entry|
+      #     callback_for Entry, :validate, if: -> { enabled? } do, source: :pm, |entry|
       #       entry.errors.add(:base, "not valid")
       #     end
       #
@@ -30,6 +30,11 @@ module Plugins
       #
       #   class Entry < ApplicationRecord
       #     include RemoteCallbacks
+      #     belongs_to :payment_method
+      #     def pm
+      #       payment_method
+      #     end
+      #
       #   end
       #
       module RemoteCallbacks
@@ -45,14 +50,16 @@ module Plugins
         ]
 
         def self.included(base)
+          return if base.instance_variable_defined?(:@_remote_callbacks_loaded)
           base.include ::Plugins::Models::Concerns::Options::InheritableClassAttribute
           base.inheritable_class_attribute :_remote_callbacks, :_remote_callbacks_initialized
           base._remote_callbacks ||= []
+          base.extend ClassMethods
           unless base._remote_callbacks_initialized
             base.setup_remote_callbacks!
             base._remote_callbacks_initialized = true
           end
-          base.extend ClassMethods
+          base.instance_variable_set(:@_remote_callbacks_loaded, true)
         end
 
         module ClassMethods
@@ -73,6 +80,8 @@ module Plugins
           def callback_for(*args, &block)
             target         = args[0]
             callback_name  = args[1]
+            opts = args.extract_options!
+            args.compact!
             method_or_block = args.length > 2 ? args[2] : block
 
             raise ArgumentError, "Missing or invalid callback name" unless ::Plugins::Models::Concerns::RemoteCallbacks::CALLBACKS.include?(callback_name.to_sym)
@@ -80,7 +89,8 @@ module Plugins
 
             target_class = target.is_a?(String) ? target.constantize : target
 
-            unless target_class.include?(ActiveSupport::Callbacks::ClassMethods)
+            unless target_class.include?(ActiveSupport::Callbacks)
+              debugger
               raise ArgumentError, "Target must include ActiveSupport::Callbacks"
             end
 
@@ -88,7 +98,7 @@ module Plugins
               raise ArgumentError, "Target class must include RemoteCallbacks"
             end
 
-            opts = args.extract_options!
+
             opts = {
               target_class: target_class.name,
               source: self.name.demodulize.underscore.to_sym,
@@ -121,11 +131,18 @@ module Plugins
                   end
 
                   # Skip if no source
-                  next if self_cb.source.nil?
-
+                  source = self_cb.source
+                  next if source.nil?
                   source_cb = raw_cb.dup.only_keys(:callback)
-                  source_cb.set_context(self_cb.source)
-                  source_cb.callback(self)
+                  if source.is_a?(Enumerable)
+                    source.select{|src| src.is_a?(::ActiveRecord::Base) }.each do |src|
+                      source_cb.set_context(src)
+                      source_cb.callback(self)
+                    end
+                  else
+                    source_cb.set_context(source)
+                    source_cb.callback(self)
+                  end
                 end
               end
             end

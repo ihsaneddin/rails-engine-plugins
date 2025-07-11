@@ -7,188 +7,215 @@ module Plugins
 
         extend ActiveSupport::Concern
 
-        included do
-          include PublishesEvents
-          include SubscribesToEvents
-        end
-
-        # included do
-        #   class_attribute :_instrumented_callbacks
-        #   self._instrumented_callbacks = {}
-        #   [ :before_validation, :after_validation, :before_save, :after_save, :before_create, :after_create, :before_update, :after_update, :before_destroy, :after_destroy ].each do  |kallback|
-        #     class_eval <<-CODE, __FILE__, __LINE__ + 1
-        #       def _callback_event_#{kallback}
-        #         unless (self.class.instrumented_callbacks || []).include?('#{kallback.to_s}')
-        #           self.class.events_config.instrument(type: self.class.event_base_name.demodulize.underscore.downcase + '.#{kallback}', payload: self)
-        #           self.class.instrumented_callbacks= '#{kallback.to_s}'
-        #         end
-        #       end
-        #     CODE
-        #     send kallback, "_callback_event_#{kallback}".to_sym
-        #   end
-        # end
-
-        # class_methods do
-
-        #   def instrumented_callbacks
-        #     self._instrumented_callbacks[self.name] ||= []
-        #   end
-
-        #   def instrumented_callbacks=(v)
-        #     self._instrumented_callbacks[self.name] ||= []
-        #     self._instrumented_callbacks[self.name] << v
-        #   end
-
-        #   def event_base_name
-        #     self.name
-        #   end
-
-        # end
-
         module PublishesEvents
+
+          mattr_accessor :eventable_publishes_events_classes
+          @@eventable_publishes_events_classes = []
+
+          def self.<<(base)
+            @@eventable_publishes_events_classes << base
+          end
+
+          def self.eventable_register_events
+            @@eventable_publishes_events_classes.each(&:eventable_register_events!)
+          end
+
           def self.included(base)
-            base.include(Plugins::Models::Concerns::Options::InheritableClassAttribute)
-            base.inheritable_class_attribute :_event_publications
-            base._event_publications ||= {}
-            base.extend(ClassMethods)
-            base.singleton_class.prepend(MethodOverrideTracker)
-            base.instance_variable_set(:@_pending_event_wraps, Set.new)
-            base.instance_variable_set(:@_method_wrapped, Set.new)
+            return if base.instance_variable_defined?(:@_eventable_loaded)
+            base.include Plugins.decorators.inheritables.singleton_methods
+            base.include Plugins::Decorators.method_decorators
+            base.inheritable_class_attribute :eventable_events
+            base.inheritable_class_attribute :eventable_bus_name
+            base.eventable_events ||= {}
+            base.eventable_bus_name = :default
+            base.define_inheritable_singleton_method :eventable_bus do
+              Plugins::Configuration::Bus
+            end
+            base.define_method :eventable_bus do
+              self.class.eventable_bus
+            end
+
+            self << base
+
+            base.define_method_decorator :eventable_publish_event_decorator do |method_name, original, *args, block, **opts|
+              result = original.call(*args, &block)
+              skip_if = opts[:skip_if]
+              if skip_if.is_a?(Proc)
+                skip_if = instance_exec(&skip_if)
+              end
+              unless skip_if
+                payload = opts[:payload]
+                if payload.is_a?(Proc)
+                  payload = instance_exec(&payload)
+                end
+                payload ||= { object: self }
+                self.class.eventable_publish_event_for_method(method_name, **(payload.is_a?(Hash) ? payload : {object: payload}))
+              end
+              result
+            end
+
+            base.extend ClassMethods
+            base.instance_variable_set(:@_eventable_loaded, true)
           end
 
           module ClassMethods
-            def publishes_event(event_name, on: nil, bus: :default, prefix: nil)
-              method_key = on&.to_sym || :manual
+            def publishes_event(event_name, on:, bus: nil, prefix: nil, payload: nil, skip_if: false, &block)
+              method_key = on&.to_sym
               prefix ||= name.demodulize.underscore
+              bus ||= eventable_bus_name || :default
+              payload ||= block
 
-              self._event_publications ||= {}
-              self._event_publications = _event_publications.deep_dup
-              self._event_publications[method_key] ||= []
+              self.eventable_events = eventable_events.deep_dup
+              self.eventable_events[method_key] ||= []
 
-              self._event_publications[method_key] << {
+              self.eventable_events[method_key] << {
                 event_name: event_name.to_sym,
                 bus: bus.to_sym,
-                prefixes: [prefix]
+                prefixes: [prefix],
               }
+              decorate_method( on, with: :eventable_publish_event_decorator, **{ payload: payload, skip_if: skip_if })
+            end
 
-              Plugins::Configuration::Bus.instance(bus, init: true)
-              Plugins::Configuration::Bus.register(bus, "#{prefix}.#{event_name}")
-
-              # Defer wrapping until method is defined
-              if method_key != :manual
-                @_pending_event_wraps << method_key
+            def eventable_publish_event_for_method(method_name, **payload)
+              events = self.eventable_events[method_name.to_sym] || []
+              events.each do |eb|
+                eb[:prefixes].each do |prefix|
+                  eventable_bus.instance(eb[:bus], init: true)
+                  eventable_bus.publish(eb[:bus], [prefix, eb[:event_name]].join("."), **payload)
+                end
               end
             end
 
-            def _event_publications_for(method_name)
-              _event_publications[method_name.to_sym] || []
+            def eventable_register_events!
+              eventable_events.each_value do |events|
+                events.each do |eb|
+                  eb[:prefixes].each do |prefix|
+                    eventable_bus.instance(eb[:bus], init: true)
+                    eventable_bus.register(eb[:bus], [prefix, eb[:event_name]].join("."))
+                  end
+                end
+              end
             end
 
             def inherited(subclass)
               super(subclass)
-
               subclass_prefix = subclass.name.demodulize.underscore
-
-              if subclass._event_publications
-                subclass._event_publications.each do |_method, events|
+              if subclass.eventable_events
+                subclass.eventable_events.each do |_method, events|
                   events.each do |event|
                     event[:prefixes] ||= []
                     unless event[:prefixes].include?(subclass_prefix)
                       event[:prefixes] << subclass_prefix
-
-                      bus = event[:bus] || :default
-                      Plugins::Configuration::Bus.instance(bus, init: true)
-                      Plugins::Configuration::Bus.register(bus, "#{subclass_prefix}.#{event[:event_name]}")
                     end
                   end
                 end
               end
             end
-
-            def wrap_method_with_event_publish(klass, method_name)
-              return if klass.instance_variable_get(:@_method_wrapped).include?(method_name.to_sym)
-
-              klass.instance_variable_get(:@_method_wrapped) << method_name.to_sym
-              original = klass.instance_method(method_name)
-
-              klass.define_method(method_name) do |*args, **kwargs, &block|
-                result = original.bind(self).call(*args, **kwargs, &block)
-
-                self.class._event_publications_for(method_name).each do |event_def|
-                  event = event_def[:event_name].to_s
-                  bus = event_def[:bus]
-                  event_def[:prefixes].each do |prefix|
-                    Plugins::Configuration::Bus.publish(bus, "#{prefix}.#{event}", target: self)
-                  end
-                end
-
-                result
-              end
-            end
           end
 
-          module MethodOverrideTracker
-            def method_added(method_name)
-              super
-
-              return unless respond_to?(:_event_publications)
-
-              pending = @_pending_event_wraps || Set.new
-              return unless pending.include?(method_name)
-
-              PublishesEvents::ClassMethods.wrap_method_with_event_publish(self, method_name)
-              pending.delete(method_name)
-            end
-          end
-
-          def publish_event(event_name, bus: :default, prefix: nil, **payload)
+          def publish_event(event_name, bus: nil, prefix: nil, **payload)
             prefix ||= self.class.name.demodulize.underscore
-            Plugins::Configuration::Bus.instance(bus.to_sym, init: true)
-            Plugins::Configuration::Bus.publish(bus.to_sym, "#{prefix}.#{event_name}", target: self, **payload)
+            bus ||= self.class.eventable_bus_name || :default
+
+            eventable_bus.instance(bus.to_sym, init: true)
+            eventable_bus.publish(bus.to_sym, [prefix, event_name].map(&:to_s).compact.join("."), **payload)
           end
+
         end
 
         module SubscribesToEvents
+
+          mattr_accessor :eventable_subsciber_classes
+          @@eventable_subsciber_classes = []
+
+          def self.<<(base)
+            @@eventable_subsciber_classes << base
+          end
+
+          def self.eventable_register_event_buses!
+            @@eventable_subsciber_classes.each(&:register_event_subscriptions!)
+          end
+
           def self.included(base)
-            base.extend(ClassMethods)
-            base.include(Plugins::Models::Concerns::Options::InheritableClassAttribute)
-            base.inheritable_class_attribute :_event_subscriptions
-            base._event_subscriptions ||= []
+            base.include(self.[])
+          end
+
+          def self.[](**options)
+            Class.new(Module) do
+              define_method(:included) do |base|
+                base.include(::Omnes::Subscriber[**options])
+                base.include Plugins.decorators.inheritables.singleton_methods
+                base.inheritable_class_attribute :eventable_subscription_buses
+                base.eventable_subscription_buses = []
+                base.extend(ClassMethods)
+                base.define_inheritable_singleton_method :eventable_bus do
+                  Plugins::Configuration::Bus
+                end
+                base.define_method :eventable_bus do
+                  self.class.eventable_bus
+                end
+                ::Plugins::Models::Concerns::Eventable::SubscribesToEvents << base
+              end
+            end.new
           end
 
           module ClassMethods
-            def on_event(bus:, event:, handler: nil, &block)
-              self._event_subscriptions ||= []
-              self._event_subscriptions = _event_subscriptions.dup
 
-              self._event_subscriptions << {
-                bus: bus.to_sym,
-                event: event.to_s,
-                handler: handler,
-                block: block
-              }
+            def on_event(*args, &block)
+              opts = args.extract_options!
+              events = args
+              bus = opts[:bus] || :default
+              handler = opts[:handler] || block
+              case handler
+              when Proc
+                events.each do |event_name|
+                  eventable_bus.subscribe(bus.to_sym, event_name, &handler)
+                end
+              when String,Symbol
+                events.each do |event_name|
+                  handle event_name, with: handler.to_sym
+                end
+                eventable_subscription_buses << bus
+              else
+                events.each do |event_name|
+                  eventable_bus.subscribe(bus.to_sym, event_name, handler)
+                end
+              end
             end
 
-            def register_event_subscriptions!
-              @_event_subscriptions_registered ||= {}
+            def on_matched_event(matcher, **opts, &block)
+              handler = opts[:handler] || block
+              bus = opts[:bus] || :default
+              case handler
+              when Proc
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
+              when String,Symbol
+                handle_with_matcher matcher, with: handler.to_sym
+                eventable_subscription_buses << bus
+              else
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, handler)
+              end
+            end
 
-              self._event_subscriptions.each do |sub|
-                key = "#{sub[:bus]}:#{sub[:event]}"
-                next if @_event_subscriptions_registered[key]
+            def on_all_events **opts, &block
+              handler = opts[:handler] || block
+              bus = opts[:bus] || :default
+              matcher = opts[:matcher]
+              case handler
+              when Proc
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
+              when String,Symbol
+                handle_with_matcher matcher, with: handler.to_sym
+                eventable_subscription_buses << bus
+              else
+                eventable_bus.subscribe_to_all(bus.to_sym, matcher, handler)
+              end
+            end
 
-                Plugins::Configuration::Bus.instance(sub[:bus], init: true)
-                Plugins::Configuration::Bus.register(sub[:bus], sub[:event])
-                Plugins::Configuration::Bus.subscribe(sub[:bus], sub[:event]) do |payload|
-                  target = payload[:target]
-
-                  if sub[:handler]
-                    target.send(sub[:handler], payload)
-                  else
-                    target.instance_exec(payload, &sub[:block])
-                  end
-                end
-
-                @_event_subscriptions_registered[key] = true
+            def eventable_register_event_buses!
+              eventable_subscription_buses.each do |bus|
+                bus_obj = eventable_bus.instance(bus, init: true)
+                new.subscribe_to(bus_obj)
               end
             end
           end

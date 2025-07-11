@@ -57,7 +57,7 @@ module Plugins
             end
             base.send(_config_name).set_context(base)
           else
-            base.include ::Plugins::Models::Concerns::Options::InheritableClassAttribute
+            base.include ::Plugins.decorators.inheritables.singleton_methods
             base.inheritable_class_attribute _config_name.to_sym
 
             opts = default_opts.merge(opts.slice(*default_opts.keys))
@@ -69,7 +69,7 @@ module Plugins
             end
             instance_config_var = :"@__cached_config_#{config_name}"
 
-            base.define_singleton_method(config_name) { send(_config_name) }
+            base.define_inheritable_singleton_method(config_name) { send(_config_name) }
             base.define_method(config_name) do
               instance_variable_get(instance_config_var) || instance_variable_set(instance_config_var, begin
                 dup = self.class.send(_config_name).dup
@@ -90,7 +90,7 @@ module Plugins
               base.define_method("#{method_prefix}_#{key}") do |*args|
                 self.send(config_name).get(key, *args)
               end
-              base.define_singleton_method("#{method_prefix}_#{key}") do |*args|
+              base.define_inheritable_singleton_method("#{method_prefix}_#{key}") do |*args|
                 self.send(config_name).get(key, *args)
               end
             end

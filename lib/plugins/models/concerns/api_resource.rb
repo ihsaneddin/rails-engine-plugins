@@ -4,7 +4,7 @@ module Plugins
       module ApiResource
 
         def self.included base
-          extend ClassMethods
+          base.extend ClassMethods
         end
 
         def self.plugins_config

@@ -13,15 +13,18 @@ module Plugins
 
           class_methods do
             def inheritable_class_attribute(*attrs)
-              self._inheritable_attributes += attrs
               attrs.each do |attr|
                 # Prevent shared accessors
-                class_attribute attr, instance_accessor: false
+                unless self._inheritable_attributes.include?(attr)
+                  class_attribute attr, instance_accessor: false
+                  self._inheritable_attributes << attr
+                end
               end
             end
 
             def inherited(subclass)
-              super
+              super(subclass)
+              subclass._inheritable_attributes = self._inheritable_attributes.dup
               _inheritable_attributes.each do |attr|
                 value = send(attr)
                 copied_value = deep_copy(value)
@@ -36,7 +39,11 @@ module Plugins
               when NilClass, Symbol, Numeric, TrueClass, FalseClass
                 value
               when Hash
-                value.transform_values { |v| deep_copy(v) }
+                copied = value.each_with_object({}) do |(k, v), acc|
+                  acc[k] = deep_copy(v)
+                end
+                copied.default_proc = value.default_proc if value.default_proc
+                copied
               when Array
                 value.map { |v| deep_copy(v) }
               when Set
@@ -46,18 +53,6 @@ module Plugins
               end
             end
 
-            def deep_copy(value)
-              case value
-              when Hash
-                value.transform_values { |v| deep_copy(v) }
-              when Array
-                value.map { |v| deep_copy(v) }
-              when Set
-                Set.new(value.map { |v| deep_copy(v) })
-              else
-                value.dup rescue value
-              end
-            end
 
           end
 
