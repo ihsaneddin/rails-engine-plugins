@@ -34,6 +34,13 @@ module Plugins
         with_instance(name) { |bus| bus.register(event) }
       end
 
+      def self.registered?(name, event)
+        with_instance(name) do |bus|
+          registry = bus.registry
+          registry.event_names.include?(event)
+        end
+      end
+
       def self.publish(name, event, **opts)
         with_instance(name) { |bus| bus.publish(event, **opts) }
       end
@@ -43,6 +50,20 @@ module Plugins
           with_instance(name) { |bus| bus.subscribe(event, &block) }
         else
           with_instance(name) { |bus| bus.subscribe(event, handler) }
+        end
+      end
+
+      def self.safe_subscribe(name, event, handler = nil, &block)
+        if block_given?
+          with_instance(name) do |bus|
+            bus.register(event) unless bus.registered?(event)
+            bus.subscribe(event, &block)
+          end
+        else
+          with_instance(name) do |bus|
+            bus.register(event) unless bus.registered?(event)
+            bus.subscribe(event, handler)
+          end
         end
       end
 

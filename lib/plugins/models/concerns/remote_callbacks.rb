@@ -90,7 +90,6 @@ module Plugins
             target_class = target.is_a?(String) ? target.constantize : target
 
             unless target_class.include?(ActiveSupport::Callbacks)
-              debugger
               raise ArgumentError, "Target must include ActiveSupport::Callbacks"
             end
 
@@ -102,8 +101,9 @@ module Plugins
             opts = {
               target_class: target_class.name,
               source: self.name.demodulize.underscore.to_sym,
+              source_class: self,
               if: true,
-              exclusive: false
+              exclusive: true
             }.merge(opts)
 
             opts[:callback_name] = callback_name.to_s
@@ -133,14 +133,10 @@ module Plugins
                   # Skip if no source
                   source = self_cb.source
                   next if source.nil?
-                  source_cb = raw_cb.dup.only_keys(:callback)
-                  if source.is_a?(Enumerable)
-                    source.select{|src| src.is_a?(::ActiveRecord::Base) }.each do |src|
-                      source_cb.set_context(src)
-                      source_cb.callback(self)
-                    end
-                  else
-                    source_cb.set_context(source)
+                  source_cb = raw_cb.dup.only_keys(:callback, :source_class)
+                  source = Array(source) unless source.is_a?(Enumerable)
+                  source.select{|src| src.is_a?(::ActiveRecord::Base) && src.class <= source_cb.source_class }.each do |src|
+                    source_cb.set_context(src)
                     source_cb.callback(self)
                   end
                 end

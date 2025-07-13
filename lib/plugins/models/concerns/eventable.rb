@@ -13,21 +13,25 @@ module Plugins
           @@eventable_publishes_events_classes = []
 
           def self.<<(base)
-            @@eventable_publishes_events_classes << base
+            @@eventable_publishes_events_classes << base unless @@eventable_publishes_events_classes.include?(base)
           end
 
           def self.eventable_register_events
-            @@eventable_publishes_events_classes.each(&:eventable_register_events!)
+            @@eventable_publishes_events_classes.each do |klass|
+              klass.eventable_register_events!
+              klass.descendants.each(&:eventable_register_events!)
+            end
           end
 
           def self.included(base)
             return if base.instance_variable_defined?(:@_eventable_loaded)
+
             base.include Plugins.decorators.inheritables.singleton_methods
             base.include Plugins::Decorators.method_decorators
             base.inheritable_class_attribute :eventable_events
             base.inheritable_class_attribute :eventable_bus_name
             base.eventable_events ||= {}
-            base.eventable_bus_name = :default
+            base.eventable_bus_name = base.name.demodulize.underscore.to_sym
             base.define_inheritable_singleton_method :eventable_bus do
               Plugins::Configuration::Bus
             end
@@ -36,6 +40,15 @@ module Plugins
             end
 
             self << base
+
+            tracer = TracePoint.new(:end) do |tp|
+              if tp.self == base
+                base.eventable_register_events!
+                tracer.disable
+              end
+            end
+
+            tracer.enable
 
             base.define_method_decorator :eventable_publish_event_decorator do |method_name, original, *args, block, **opts|
               result = original.call(*args, &block)
@@ -73,7 +86,19 @@ module Plugins
                 bus: bus.to_sym,
                 prefixes: [prefix],
               }
+
               decorate_method( on, with: :eventable_publish_event_decorator, **{ payload: payload, skip_if: skip_if })
+            end
+
+            def register_events *args
+              opts = args.extract_options!
+              events = args
+              bus_name = opts[:bus] || eventable_bus_name
+              prefix = opts[:prefix] || name.demodulize.underscore
+              events.each do |event_name|
+                eventable_bus.instance(bus_name.to_sym, init: true)
+                eventable_bus.register(bus_name.to_sym, [prefix, event_name].join("_").to_sym)
+              end
             end
 
             def eventable_publish_event_for_method(method_name, **payload)
@@ -81,17 +106,17 @@ module Plugins
               events.each do |eb|
                 eb[:prefixes].each do |prefix|
                   eventable_bus.instance(eb[:bus], init: true)
-                  eventable_bus.publish(eb[:bus], [prefix, eb[:event_name]].join("."), **payload)
+                  eventable_bus.publish(eb[:bus], [prefix, eb[:event_name]].join("_").to_sym, **payload)
                 end
               end
             end
 
             def eventable_register_events!
-              eventable_events.each_value do |events|
+              self.eventable_events.each_value do |events|
                 events.each do |eb|
                   eb[:prefixes].each do |prefix|
                     eventable_bus.instance(eb[:bus], init: true)
-                    eventable_bus.register(eb[:bus], [prefix, eb[:event_name]].join("."))
+                    eventable_bus.register(eb[:bus], [prefix, eb[:event_name]].join("_").to_sym)
                   end
                 end
               end
@@ -110,15 +135,25 @@ module Plugins
                   end
                 end
               end
+
+              tracer = TracePoint.new(:end) do |tp|
+                if tp.self == subclass
+                  subclass.eventable_register_events!
+                  tracer.disable
+                end
+              end
+
+              tracer.enable
             end
           end
 
           def publish_event(event_name, bus: nil, prefix: nil, **payload)
             prefix ||= self.class.name.demodulize.underscore
             bus ||= self.class.eventable_bus_name || :default
-
+            event_name = [prefix, event_name].map(&:to_s).compact.join("_").to_sym
             eventable_bus.instance(bus.to_sym, init: true)
-            eventable_bus.publish(bus.to_sym, [prefix, event_name].map(&:to_s).compact.join("."), **payload)
+            eventable_bus.register(bus.to_sym, event_name.to_sym) unless eventable_bus.registered?(bus.to_sym, event_name.to_sym)
+            eventable_bus.publish(bus.to_sym, event_name, **payload)
           end
 
         end
@@ -133,7 +168,10 @@ module Plugins
           end
 
           def self.eventable_register_event_buses!
-            @@eventable_subsciber_classes.each(&:register_event_subscriptions!)
+            @@eventable_subsciber_classes.eachd do |klass|
+              klass.eventable_register_event_buses!
+              klass.descendants.each(&:eventable_register_event_buses!)
+            end
           end
 
           def self.included(base)
@@ -155,6 +193,14 @@ module Plugins
                   self.class.eventable_bus
                 end
                 ::Plugins::Models::Concerns::Eventable::SubscribesToEvents << base
+
+                tracer = TracePoint.new(:end) do |tp|
+                  if tp.self == base
+                    base.eventable_register_event_buses!
+                    tracer.disable
+                  end
+                end
+                tracer.enable
               end
             end.new
           end
@@ -166,19 +212,21 @@ module Plugins
               events = args
               bus = opts[:bus] || :default
               handler = opts[:handler] || block
+              eventable_bus.instance(bus.to_sym, init: true)
               case handler
               when Proc
                 events.each do |event_name|
-                  eventable_bus.subscribe(bus.to_sym, event_name, &handler)
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, &handler)
                 end
               when String,Symbol
                 events.each do |event_name|
+                  eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
                   handle event_name, with: handler.to_sym
                 end
                 eventable_subscription_buses << bus
               else
                 events.each do |event_name|
-                  eventable_bus.subscribe(bus.to_sym, event_name, handler)
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, handler)
                 end
               end
             end

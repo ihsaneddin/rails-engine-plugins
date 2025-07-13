@@ -20,7 +20,9 @@ module Plugins
         extend ActiveSupport::Concern
 
         included do
-          class_attribute :_inheritable_attributes, instance_accessor: false, default: []
+          unless respond_to? :_inheritable_attributes
+            class_attribute :_inheritable_attributes, instance_accessor: false, default: []
+          end
         end
 
         class_methods do
@@ -55,11 +57,11 @@ module Plugins
                 acc[k] = deep_copy(v)
               end
               copied.default_proc = value.default_proc if value.default_proc
-              copied
+              copied.dup
             when Array
-              value.map { |v| deep_copy(v) }
+              value.map { |v| deep_copy(v) }.dup
             when Set
-              Set.new(value.map { |v| deep_copy(v) })
+              Set.new(value.map { |v| deep_copy(v) }).dup
             else
               value.dup rescue value
             end
@@ -74,9 +76,11 @@ module Plugins
         extend ActiveSupport::Concern
 
         included do
-          include InheritableClassAttribute
-          inheritable_class_attribute :_inheritable_singleton_methods
-          self._inheritable_singleton_methods ||= []
+          include ::Plugins.decorators.inheritables.class_attributes
+          unless respond_to? :_inheritable_singleton_methods
+            inheritable_class_attribute :_inheritable_singleton_methods
+            self._inheritable_singleton_methods ||= []
+          end
         end
 
         class_methods do
@@ -90,7 +94,6 @@ module Plugins
             define_singleton_method(name, &block)
 
             singleton_class.send(visibility, name) if [:private, :protected].include?(visibility)
-
             self._inheritable_singleton_methods << name unless _inheritable_singleton_methods.include?(name)
           end
 
@@ -98,7 +101,6 @@ module Plugins
             super(subclass)
 
             # Ensure the attribute is initialized on subclass
-
             _inheritable_singleton_methods.each do |method_name|
               method_obj = method(method_name)
               subclass.define_singleton_method(method_name, method_obj)

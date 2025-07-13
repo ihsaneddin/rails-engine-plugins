@@ -190,12 +190,14 @@ module Plugins
 
         def remove_keys(*args)
           args.each{|key| remove_key(key) }
+          self
         end
 
         def only_keys *args
           only = args.select{|arg| exists?(arg) }
           except = keys.select{|k| !only.include?(k) }
           remove_keys(*except)
+          self
         end
 
         def eligible_key?(key)
