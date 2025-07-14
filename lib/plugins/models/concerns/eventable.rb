@@ -52,17 +52,19 @@ module Plugins
 
             base.define_method_decorator :eventable_publish_event_decorator do |method_name, original, *args, block, **opts|
               result = original.call(*args, &block)
-              skip_if = opts[:skip_if]
-              if skip_if.is_a?(Proc)
-                skip_if = instance_exec(&skip_if)
-              end
-              unless skip_if
-                payload = opts[:payload]
-                if payload.is_a?(Proc)
-                  payload = instance_exec(&payload)
+              if result
+                skip_if = opts[:skip_if]
+                if skip_if.is_a?(Proc)
+                  skip_if = instance_exec(&skip_if)
                 end
-                payload ||= { object: self }
-                self.class.eventable_publish_event_for_method(method_name, **(payload.is_a?(Hash) ? payload : {object: payload}))
+                unless skip_if
+                  payload = opts[:payload]
+                  if payload.is_a?(Proc)
+                    payload = instance_exec(&payload)
+                  end
+                  payload ||= { object: self }
+                  self.class.eventable_publish_event_for_method(method_name, **(payload.is_a?(Hash) ? payload : {object: payload}))
+                end
               end
               result
             end
@@ -186,12 +188,14 @@ module Plugins
                 base.inheritable_class_attribute :eventable_subscription_buses
                 base.eventable_subscription_buses = []
                 base.extend(ClassMethods)
+                base.include(InstanceMethods)
                 base.define_inheritable_singleton_method :eventable_bus do
                   Plugins::Configuration::Bus
                 end
                 base.define_method :eventable_bus do
                   self.class.eventable_bus
                 end
+                base.attr_reader :id
                 ::Plugins::Models::Concerns::Eventable::SubscribesToEvents << base
 
                 tracer = TracePoint.new(:end) do |tp|
@@ -205,7 +209,7 @@ module Plugins
             end.new
           end
 
-          module ClassMethods
+        module ClassMethods
 
             def on_event(*args, &block)
               opts = args.extract_options!
@@ -223,7 +227,7 @@ module Plugins
                   eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
                   handle event_name, with: handler.to_sym
                 end
-                eventable_subscription_buses << bus
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
                 events.each do |event_name|
                   eventable_bus.safe_subscribe(bus.to_sym, event_name, handler)
@@ -239,7 +243,7 @@ module Plugins
                 eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
               when String,Symbol
                 handle_with_matcher matcher, with: handler.to_sym
-                eventable_subscription_buses << bus
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
                 eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, handler)
               end
@@ -254,19 +258,28 @@ module Plugins
                 eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
               when String,Symbol
                 handle_with_matcher matcher, with: handler.to_sym
-                eventable_subscription_buses << bus
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
                 eventable_bus.subscribe_to_all(bus.to_sym, matcher, handler)
               end
             end
 
             def eventable_register_event_buses!
-              eventable_subscription_buses.each do |bus|
+              eventable_subscription_buses.uniq.each do |bus|
                 bus_obj = eventable_bus.instance(bus, init: true)
                 new.subscribe_to(bus_obj)
               end
             end
           end
+        end
+
+        module InstanceMethods
+
+          def initialize *args
+            super(*args) if defined?(super)
+            @id = SecureRandom.hex(6)
+          end
+
         end
 
       end

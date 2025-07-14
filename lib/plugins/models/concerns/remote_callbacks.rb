@@ -97,11 +97,10 @@ module Plugins
               raise ArgumentError, "Target class must include RemoteCallbacks"
             end
 
-
             opts = {
               target_class: target_class.name,
               source: self.name.demodulize.underscore.to_sym,
-              source_class: self,
+              source_class: self.name,
               if: true,
               exclusive: true
             }.merge(opts)
@@ -111,6 +110,9 @@ module Plugins
 
             config = ::Plugins::Models::Concerns::Config.build(**opts)
             target_class._remote_callbacks << config.dup
+            target_class.descendants.each do |subclass|
+              subclass._remote_callbacks << config.dup
+            end
           end
 
           # Injects ActiveRecord-style callbacks to evaluate remote callbacks
@@ -135,7 +137,7 @@ module Plugins
                   next if source.nil?
                   source_cb = raw_cb.dup.only_keys(:callback, :source_class)
                   source = Array(source) unless source.is_a?(Enumerable)
-                  source.select{|src| src.is_a?(::ActiveRecord::Base) && src.class <= source_cb.source_class }.each do |src|
+                  source.select{|src| src.is_a?(::ActiveRecord::Base) && src.class <= source_cb.source_class.constantize }.each do |src|
                     source_cb.set_context(src)
                     source_cb.callback(self)
                   end

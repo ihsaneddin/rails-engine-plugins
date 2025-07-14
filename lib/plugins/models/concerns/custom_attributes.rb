@@ -41,8 +41,24 @@ module Plugins
 
                 # Register as virtual attribute with correct type and default
                 unless attribute_types.key?(attr_key.to_s)
-                  default_value = model_type.new.public_send(attr_key)
-                  attribute attr_key, attr_type.class.new, default: default_value
+                  case attr_type
+                  when ::StoreModel::Types::One
+                    default_value = model_type.new.public_send(attr_key)
+                    nested_klass = attr_type.model_class
+                    attribute attr_key, nested_klass.type, default_value
+                    accepts_nested_attributes_for attr_key, reject_if: :all_blank
+                  when ::StoreModel::Types::Many
+                    default_value = model_type.new.public_send(attr_key)
+                    nested_klass = attr_type.model_class
+                    attribute attr_key, nested_klass.to_array_type, default_value
+                    accepts_nested_attributes_for attr_key, reject_if: :all_blank
+                  when ::StoreModel::Types::OnePolymorphic, ::StoreModel::Types::ManyPolymorphic
+                  else
+                    safe_type = attr_type.duplicable? ? attr_type.dup : attr_type.class.new
+                    attribute attr_key, safe_type, default: default_value
+                    # default_value = model_type.new.public_send(attr_key)
+                    # attribute attr_key, attr_type.class.new, default: default_value
+                  end
                 end
               end
             else

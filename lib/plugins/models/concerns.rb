@@ -12,6 +12,7 @@ module Plugins
       autoload :RemoteCallbacks, "plugins/models/concerns/remote_callbacks"
       autoload :ApiResource, "plugins/models/concerns/api_resource"
       autoload :ThreadSafe, "plugins/models/concerns/thread_safe"
+      autoload :TracksTransactionRoot, "plugins/models/concerns/tracks_transaction_root"
     end
   end
 end
