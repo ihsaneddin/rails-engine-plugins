@@ -23,7 +23,7 @@ module Plugins
           def call context, *args
             ret = nil
             blocks.each do |block|
-              if arg.nil?
+              if args.blank?
                 ret = context.instance_exec(&block)
               else
                 ret = args
@@ -77,6 +77,14 @@ module Plugins
           def set_resource_param key, value
             self.resourceful_params if self.resourceful_params_[self.to_s].blank?
             self.resourceful_params_[self.to_s][key] = value
+          end
+
+          def add_resource_actions *actions
+           set_resource_param(:resource_actions, self.resourceful_params[:resource_actions] + actions)
+          end
+
+          def add_resources_actions *actions
+            set_resource_param(:resources_actions, self.resourceful_params[:resources_actions] + actions)
           end
 
           def fetch_resource_and_collection! args= {}, &block
@@ -302,6 +310,10 @@ module Plugins
 
         module HelperMethods
 
+          def resource_context
+            get_value(:resource_context)
+          end
+
           def actions_resolve(only=nil, except=nil)
             action_name = route.options[:action]
             return true unless action_name
@@ -322,10 +334,13 @@ module Plugins
               context.resourceful_params key.to_sym
             end
 
-            if value.is_nil? && mod = model_class_constant.include?(::Plugins::Models::Concerns::ApiResource)
-              ctx = get_value(:resource_context)
-              if cfg = mod.api_resource_of(ctx)
-                value = cfg.get(key, self, *args) if cfg.key?(key)
+            if value.nil? && key != :model_klass
+              mod = model_class_constant
+              if mod.include?(::Plugins::Models::Concerns::ApiResource)
+                ctx = get_value(:resource_context)
+                if cfg = mod.api_resource_of(ctx)
+                  value = cfg.get(key, self, *args) if cfg.exists?(key)
+                end
               end
             end
 
@@ -337,7 +352,7 @@ module Plugins
               end
             end
             if value.is_a?(Proc)
-              if arg
+              if args
                 value = instance_exec(*args, &value)
               else
                 value = instance_exec(&value)

@@ -40,6 +40,24 @@ module Plugins
             only_keys
           ]
 
+        module InheritableClassAttribute
+
+          extend ActiveSupport::Concern
+
+          class_methods do
+
+            def deep_copy(value, opts = {})
+              value = super(value, opts)
+              if value.is_a?(::Plugins::Models::Concerns::Config)
+                value.set_context(opts[:subclass])
+              end
+              value
+            end
+
+          end
+
+        end
+
         def self.setup(base, config_name, opts = {}, default_opts = {}, **kwargs, &block)
 
           _config_name = "_#{config_name}"
@@ -77,11 +95,13 @@ module Plugins
               end)
             end
 
-            base.singleton_class.define_method(:inherited) do |subclass|
-              super(subclass)
-              subclass_config = send(_config_name)
-              subclass_config.set_context(subclass)
-            end
+            # base.singleton_class.define_method(:inherited) do |subclass|
+            #   super(subclass)
+            #   subclass_config = send(_config_name)
+            #   subclass_config.set_context(subclass)
+            # end
+
+            base.include(::Plugins::Models::Concerns::Config::InheritableClassAttribute)
 
             method_prefix = kwargs[:method_prefix] || config_name
 

@@ -41,27 +41,27 @@ module Plugins
             subclass._inheritable_attributes = self._inheritable_attributes.dup
             _inheritable_attributes.each do |attr|
               value = send(attr)
-              copied_value = deep_copy(value)
+              copied_value = deep_copy(value, {subclass: subclass, attr: attr})
               subclass.send("#{attr}=", copied_value)
             end
           end
 
           private
 
-          def deep_copy(value)
+          def deep_copy(value, opts={})
             case value
             when NilClass, Symbol, Numeric, TrueClass, FalseClass
               value
             when Hash
               copied = value.each_with_object({}) do |(k, v), acc|
-                acc[k] = deep_copy(v)
+                acc[k] = deep_copy(v, opts)
               end
               copied.default_proc = value.default_proc if value.default_proc
               copied.dup
             when Array
-              value.map { |v| deep_copy(v) }.dup
+              value.map { |v| deep_copy(v, opts) }.dup
             when Set
-              Set.new(value.map { |v| deep_copy(v) }).dup
+              Set.new(value.map { |v| deep_copy(v, opts) }).dup
             else
               value.dup rescue value
             end

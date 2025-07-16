@@ -76,7 +76,7 @@ module Plugins
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, default_opts,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
 
-
+            include InstanceMethods
           end
 
           def api_resource_of(ctx="default")
@@ -86,6 +86,15 @@ module Plugins
             end
           end
 
+        end
+
+        module InstanceMethods
+          def api_resource_of(ctx="default")
+            cfg = send("#{ctx}_grape_api_resource_config")
+            if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
+              return cfg
+            end
+          end
         end
 
       end

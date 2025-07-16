@@ -220,7 +220,8 @@ module Plugins
           base.mattr_accessor :base_endpoint_class
           base.mattr_accessor :callback_set
 
-          base.authenticate = -> { nil }
+          base.authenticate = -> (*args) { nil }
+          base.authorize = -> (*args){ true }
           base.base_api_namespace = nil
           base.pagination = Plugins::Configuration::GrapeApi::Pagination
           base.base_endpoint_class = "base"
