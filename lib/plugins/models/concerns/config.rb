@@ -1,4 +1,3 @@
-require 'byebug'
 module Plugins
   module Models
     module Concerns

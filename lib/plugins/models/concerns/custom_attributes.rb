@@ -1,4 +1,3 @@
-require 'byebug'
 module Plugins
   module Models
     module Concerns
@@ -7,6 +6,7 @@ module Plugins
 
         class_methods do
           def custom_attributes_definition(attribute_name, model_type, prefix: nil, accessor: false)
+            return unless ::ActiveRecord::Base.connection.table_exists?(table_name)
             check_jsonb_compatibility!
             include StoreModel::NestedAttributes
 
