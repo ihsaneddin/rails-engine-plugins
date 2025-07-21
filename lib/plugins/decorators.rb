@@ -3,6 +3,7 @@ module Plugins
     autoload :MethodAnnotations, "plugins/decorators/method_annotations"
     autoload :MethodDecorators, "plugins/decorators/method_decorators"
     autoload :Inheritables, "plugins/decorators/inheritables"
+    autoload :SmartSend, "plugins/decorators/smart_send"
 
     def self.method_annotations
       MethodAnnotations

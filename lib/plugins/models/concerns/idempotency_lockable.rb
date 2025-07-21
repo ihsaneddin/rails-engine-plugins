@@ -103,7 +103,7 @@ module Plugins
         #   entry.idempotency_lock!(key_fields: [:payment_method_id, :amount], window: 5.seconds) do
         #     entry.process!
         #   end
-        def idempotency_lock!(key: nil, window: nil, key_fields: nil, &block)
+        def idempotency_lock!(key: nil, window: nil, key_fields: nil, timeout: 5, transaction: true, &block)
           key ||= generate_idempotency_key(key_fields: key_fields)
           raise ArgumentError, "Could not determine idempotency_key" unless key
 
@@ -113,8 +113,13 @@ module Plugins
           if window && respond_to?(:idempotency_window=)
             self.idempotency_window ||= Time.at((Time.current.to_f / window).floor * window).in_time_zone
           end
-
-          self.class.with_advisory_lock(scoped_key, timeout_seconds: 5, &block)
+          if transaction
+            self.class.transaction do
+              self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, &block)
+            end
+          else
+            self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, transaction: transaction, &block)
+          end
         end
 
         # Generates a unique SHA256 idempotency key based on selected fields of the instance
@@ -127,6 +132,9 @@ module Plugins
         #   # => "02c2fd7c9e1cb2..."
         def generate_idempotency_key(key_fields: nil)
           fields = key_fields || self.class.idempotency_key_fields
+          if fields.is_a?(Proc)
+            fields = instance_exec(&fields)
+          end
           return nil if fields.empty? || !respond_to?(:attributes)
 
           raw = [self.class.name, *attributes.symbolize_keys.slice(*fields.map(&:to_sym)).values].join("-")

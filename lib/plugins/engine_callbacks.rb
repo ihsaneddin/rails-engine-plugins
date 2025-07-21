@@ -13,7 +13,6 @@ module Plugins
     def self.extended base
       return unless base < ::Rails::Engine
       engine_name = base.engine_name
-      puts base
       @@engine_callback_procs[engine_name.to_sym] = { before_initialization: [], after_initialization: [], initializer: [] }
 
       base.config.before_initialize do |app|

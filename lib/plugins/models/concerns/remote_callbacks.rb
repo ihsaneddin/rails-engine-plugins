@@ -137,7 +137,7 @@ module Plugins
                   next if source.nil?
                   source_cb = raw_cb.dup.only_keys(:callback, :source_class)
                   source = Array(source) unless source.is_a?(Enumerable)
-                  source.select{|src| src.is_a?(::ActiveRecord::Base) && src.class <= source_cb.source_class.constantize }.each do |src|
+                  source.select{|src| src.is_a?(::ActiveRecord::Base) && src.class <= source_cb.source_class.constantize }.uniq.each do |src|
                     source_cb.set_context(src)
                     source_cb.callback(self)
                   end

@@ -16,6 +16,7 @@ module Plugins
         base._already_wrapped_methods ||= Set.new
 
         base.instance_variable_set(:@_method_decorators_loaded, true)
+        base.include(SmartSend)
       end
 
       module ClassMethods

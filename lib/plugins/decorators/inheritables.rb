@@ -6,6 +6,7 @@ module Plugins
 
       included do
         include InheritableSingletonMethods
+        include SmartSend
       end
 
       def self.singleton_methods
