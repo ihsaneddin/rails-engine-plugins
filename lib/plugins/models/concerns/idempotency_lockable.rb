@@ -109,7 +109,7 @@ module Plugins
 
           scoped_key = self.class.build_idempotency_scoped_key(key, window)
 
-          self.idempotency_key ||= key if respond_to?(:idempotency_key=)
+          self.idempotency_key ||= scoped_key if respond_to?(:idempotency_key=)
           if window && respond_to?(:idempotency_window=)
             self.idempotency_window ||= Time.at((Time.current.to_f / window).floor * window).in_time_zone
           end
