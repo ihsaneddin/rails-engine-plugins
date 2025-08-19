@@ -26,7 +26,7 @@ module Plugins
             if respond_to?(:model_class_constant) && model_class_constant.include?(::Plugins::Models::Concerns::ApiResource)
               mod = model_class_constant
               ctx = get_value(:resource_context)
-              if cfg = mod.api_resource_of(ctx)
+              if cfg = mod.grape_api_resource_of(ctx)
                 p_name = cfg.presenter
               end
             end

@@ -40,7 +40,7 @@ module Plugins
           def resourceful_params key=nil
             if self.resourceful_params_[self.to_s].blank?
               self.resourceful_params_[self.to_s] = {
-                resource_context: "default",
+                resource_context: nil,
                 executed: [],
                 model_klass: nil,
                 resource_identifier: nil,
@@ -293,7 +293,6 @@ module Plugins
             if ctx.blank? && !block_given?
               ctx = self.resourceful_params[:resource_context]
               if ctx.blank?
-                ctx = "default"
                 set_resource_param :resource_context, ctx
               end
               ctx
@@ -334,11 +333,10 @@ module Plugins
               context.resourceful_params key.to_sym
             end
 
-            if value.nil? && key != :model_klass
+            if value.nil? && ![:model_klass, :resource_context].include?(key)
               mod = model_class_constant
               if mod.include?(::Plugins::Models::Concerns::ApiResource)
-                ctx = get_value(:resource_context)
-                if cfg = mod.api_resource_of(ctx)
+                if cfg = mod.grape_api_resource_of(value)
                   value = cfg.get(key, self, *args) if cfg.exists?(key)
                 end
               end

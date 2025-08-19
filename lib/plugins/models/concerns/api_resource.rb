@@ -50,6 +50,7 @@ module Plugins
 
         def self.default_options
           {
+            default: false,
             resource_finder: proc { |api, query, identifier| query.find_by!(identifier) },
             resources_finder: proc { |api, query, identifier|  query.where(identifier) },
             resource_identifier: "id",
@@ -65,7 +66,7 @@ module Plugins
 
         module ClassMethods
 
-          def api_resource *args, &block
+          def grape_api_resource *args, &block
 
             ctx = args[0] || "default"
             opts = args.extract_options!
@@ -76,10 +77,17 @@ module Plugins
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, default_opts,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
 
+            inheritable_class_attribute :default_grape_api_resource_config_context unless respond_to?(:default_grape_api_resource_config_context)
+            if send("#{ctx}_grape_api_resource_default")
+              self.default_grape_api_resource_config_context= "#{ctx}"
+            end
             include InstanceMethods
           end
 
-          def api_resource_of(ctx="default")
+          def grape_api_resource_of(ctx=nil)
+            if ctx.nil?
+              ctx = self.default_grape_api_resource_config_context
+            end
             cfg = send("#{ctx}_grape_api_resource_config")
             if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
               return cfg
@@ -89,7 +97,10 @@ module Plugins
         end
 
         module InstanceMethods
-          def api_resource_of(ctx="default")
+          def grape_api_resource_of(ctx=nil)
+            if ctx.nil?
+              ctx = self.class.default_grape_api_resource_config_context
+            end
             cfg = send("#{ctx}_grape_api_resource_config")
             if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
               return cfg
