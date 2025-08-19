@@ -337,7 +337,8 @@ module Plugins
               mod = model_class_constant
               if mod.include?(::Plugins::Models::Concerns::ApiResource)
                 if cfg = mod.grape_api_resource_of(value)
-                  value = cfg.get(key, self, *args) if cfg.exists?(key)
+                  args << self
+                  value = cfg.get(key, *args) if cfg.exists?(key)
                 end
               end
             end
