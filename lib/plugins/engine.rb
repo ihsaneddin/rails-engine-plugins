@@ -1,7 +1,10 @@
 # require 'plugins/configuration/bus'
+require 'plugins/engine_callbacks'
 module Plugins
   class Engine < ::Rails::Engine
     isolate_namespace Plugins
+
+    extend ::Plugins::EngineCallbacks
 
     config.after_initialize do
       #Rails.application.eager_load! unless Rails.configuration.eager_load

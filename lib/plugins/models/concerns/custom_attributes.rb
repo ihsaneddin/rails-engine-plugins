@@ -2,7 +2,17 @@ module Plugins
   module Models
     module Concerns
       module CustomAttributes
+
+        autoload :Types, "plugins/models/concerns/custom_attributes/types"
+
         extend ActiveSupport::Concern
+
+        included do
+          include ::Plugins::EngineCallbacks
+          after_plugins_initialization do
+            ::Plugins::Models::Concerns::CustomAttributes::Types.register_classes!
+          end
+        end
 
         class_methods do
           def custom_attributes_definition(attribute_name, model_type, prefix: nil, accessor: false, ransackers: true, scopes: true)
