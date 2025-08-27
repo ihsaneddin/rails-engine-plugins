@@ -24,14 +24,16 @@ module Plugins
 
             prefix ||= attribute_name
 
-            current = self
-            while current < ActiveRecord::Base
-              break if current.abstract_class?
-              current.define_custom_attributes_model_accessors(attribute_name.to_s, model_type, prefix) if accessor
-              current.define_custom_attributes_model_scopes(attribute_name.to_s, model_type, prefix) if scopes
-              current.define_custom_attributes_model_ransackers(attribute_name.to_s, model_type, prefix) if ransackers && respond_to?(:ransacker)
-              current = current.superclass
-            end
+            define_custom_attributes_model_accessors(attribute_name.to_s, model_type, prefix) if accessor
+            define_custom_attributes_model_scopes(attribute_name.to_s, model_type, prefix) if scopes
+            define_custom_attributes_model_ransackers(attribute_name.to_s, model_type, prefix) if ransackers && respond_to?(:ransacker)
+
+            # current = self
+            # while current < ActiveRecord::Base
+            #   break if current.abstract_class?
+            #   current.define_custom_attributes_model_ransackers(attribute_name.to_s, model_type, prefix) if ransackers && respond_to?(:ransacker)
+            #   current = current.superclass
+            # end
           end
 
           def check_jsonb_compatibility!

@@ -20,16 +20,24 @@ module Plugins
               end
               send("#{att}")[new_assoc] = base_class.to_s
               belongs_to new_assoc.to_sym, foreign_key: rassoc.foreign_key, class_name: base_class.to_s, optional: true
-              class_eval <<-CODE, __FILE__, __LINE__ + 1
-                def #{assoc}_instance
-                  relation = self.class.send('#{att}').find { |_key, val| val == '#{base_class.to_s}' }&.first
-                  if respond_to?(relation)
-                    send(relation)
-                  else
-                    send('#{assoc}')
-                  end
+              define_method "#{assoc}_instance" do
+                relation = self.class.send('#{att}').find { |_key, val| val == "#{base_class.to_s}" }&.first
+                if respond_to?(relation)
+                  send(relation)
+                else
+                  send("#{assoc}")
                 end
-              CODE
+              end
+              # class_eval <<-CODE, __FILE__, __LINE__ + 1
+              #   def #{assoc}_instance
+              #     relation = self.class.send('#{att}').find { |_key, val| val == '#{base_class.to_s}' }&.first
+              #     if respond_to?(relation)
+              #       send(relation)
+              #     else
+              #       send('#{assoc}')
+              #     end
+              #   end
+              # CODE
             end
           end
 
