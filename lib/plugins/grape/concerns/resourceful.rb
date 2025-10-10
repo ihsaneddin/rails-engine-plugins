@@ -446,6 +446,9 @@ module Plugins
                 end
               end
             end
+            if route.settings[:upload_attributes]
+              attributes = normalize_file_params!(attributes)
+            end
             attributes
           end
 
@@ -544,6 +547,40 @@ module Plugins
           def _resource
             var_name = _model_klass.demodulize.underscore.downcase
             return instance_variable_get("@#{var_name}")
+          end
+
+          def normalize_file_params!(hash)
+            return hash unless hash.is_a?(Hash)
+
+            hash.each do |key, value|
+              if file_param?(value)
+                hash[key] = to_uploaded_file(value)
+              elsif value.is_a?(Hash)
+                normalize_file_params!(value)
+              elsif value.is_a?(Array)
+                hash[key] = value.map do |item|
+                  file_param?(item) ? to_uploaded_file(item) : item
+                end
+              end
+            end
+
+            hash
+          end
+
+          def file_param?(value)
+            value.is_a?(Hash) &&
+              value.key?(:tempfile) &&
+              value[:tempfile].is_a?(Tempfile) &&
+              value.key?(:filename)
+          end
+
+          def to_uploaded_file(value)
+            ActionDispatch::Http::UploadedFile.new(
+              filename: value[:filename],
+              type:     value[:type],
+              tempfile: value[:tempfile],
+              head:     value[:head]
+            )
           end
 
         end

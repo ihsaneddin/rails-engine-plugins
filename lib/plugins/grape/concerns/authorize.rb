@@ -4,7 +4,24 @@ module Plugins
       module Authorize
 
         def self.included(base)
+          base.inheritable_class_attribute :_skip_authorization
+          base.before do
+            self.class.inheritable_class_attribute :_skip_authorization
+            self.class._skip_authorization= base._skip_authorization
+          end
+          base.extend ClassMethods
           base.helpers HelperMethods
+          base.requires_authorization! if base.api_config.requires_authorization
+        end
+
+        module ClassMethods
+          def requires_authorization!
+            before do
+              unless self.class._skip_authorization || skip_authorization?
+                authorize_route!
+              end
+            end
+          end
         end
 
         module HelperMethods
@@ -12,9 +29,7 @@ module Plugins
           attr_accessor :authorized_action
 
           def authorize_route!
-            unless skip_authorization!
-              unauthorized! unless authorize
-            end
+            unauthorized! unless authorize
           end
 
           def authorize(__resources= :all)
@@ -69,7 +84,7 @@ module Plugins
             raise Plugins::Errors::ApiAuthorizationError
           end
 
-          def skip_authorization!
+          def skip_authorization?
             route_setting(:skip_authorization)
           end
 

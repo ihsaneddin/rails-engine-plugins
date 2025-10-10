@@ -23,7 +23,6 @@ module Plugins
             attribute attribute_name, model_type.to_type
 
             prefix ||= attribute_name
-
             define_custom_attributes_model_accessors(attribute_name.to_s, model_type, prefix) if accessor
             define_custom_attributes_model_scopes(attribute_name.to_s, model_type, prefix) if scopes
             define_custom_attributes_model_ransackers(attribute_name.to_s, model_type, prefix) if ransackers && respond_to?(:ransacker)

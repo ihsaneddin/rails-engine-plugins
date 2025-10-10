@@ -4,18 +4,30 @@ module Plugins
       module Authenticate
 
         def self.included(base)
-          base.helpers HelperMethods
+          base.inheritable_class_attribute :_skip_authentication
           base.before do
-            authenticate!
+            self.class.inheritable_class_attribute :_skip_authentication
+            self.class._skip_authentication= base._skip_authentication
+          end
+          base.extend ClassMethods
+          base.helpers HelperMethods
+          base.requires_authentication! if base.api_config.requires_authentication
+        end
+
+        module ClassMethods
+          def requires_authentication!
+            before do
+              unless self.class._skip_authentication || skip_authentication?
+                authenticate!
+              end
+            end
           end
         end
 
         module HelperMethods
 
           def authenticate!
-            unless skip_authentication!
-              current_user ? current_user : reject_unauthenticated!
-            end
+            current_user ? current_user : reject_unauthenticated!
           end
 
           def current_user
@@ -26,7 +38,7 @@ module Plugins
             raise Plugins::Errors::ApiAuthenticationError unless @current_user
           end
 
-          def skip_authentication!
+          def skip_authentication?
             route_setting(:skip_authentication)
           end
 

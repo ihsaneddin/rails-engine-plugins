@@ -7,7 +7,8 @@ module Plugins
     class_methods do
 
       def use_plugins_grape(config=Plugins.config.grape_api)
-        self.class_attribute :api_config
+        self.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
+        self.inheritable_class_attribute :api_config
         self.api_config= config
         self.include(Endpoint)
       end
@@ -21,13 +22,16 @@ module Plugins
           def _define_api_config(config = Plugins.config.grape_api)
             if(config)
               unless self.class.respond_to?(:api_config)
-                self.class.class_eval do
-                  self.class_attribute :api_config
-                end
+                # self.class.class_eval do
+                #   self.class_attribute :api_config
+                # end
+                self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
+                self.class.inheritable_class_attribute :api_config
               end
-              self.class.class_eval do
-                self.api_config= config
-              end
+              # self.class.class_eval do
+              #   self.api_config= config
+              # end
+              self.class.api_config= config
             end
             self.class.api_config
           end
@@ -38,9 +42,11 @@ module Plugins
 
           def _define_class_context(context)
             unless self.class.respond_to?(:context)
-              self.class.class_eval do
-                class_attribute :context
-              end
+              self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
+              # self.class.class_eval do
+              #   class_attribute :context
+              # end
+              self.class.inheritable_class_attribute :context
             end
             self.class.context = context
             self.class.context
