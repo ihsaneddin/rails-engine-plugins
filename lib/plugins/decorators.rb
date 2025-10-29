@@ -22,5 +22,9 @@ module Plugins
       ConfigBuilder
     end
 
+    def self.smart_send
+      SmartSend
+    end
+
   end
 end
