@@ -116,6 +116,16 @@ module Plugins
               end
             end
             raise ArgumentError, "#{presenter_class} should be subclass of #{::Grape::Entity}." unless presenter_class && presenter_class.ancestors.include?(::Grape::Entity)
+
+            if (meta_response = route_setting(:meta_response))
+              meta_response = instance_exec(&meta_response) if meta_response.is_a?(Proc)
+
+              if meta_response.is_a?(Hash)
+                options[:meta] ||= {}
+                options[:meta].merge!(custom_meta)
+              end
+            end
+
             present collection, with: presenter_class, meta: options[:meta], root: options[:root], locals: options[:locals], only: options[:only], except: options[:except]
           end
 
@@ -189,6 +199,12 @@ module Plugins
         end
 
         module ClassMethods
+
+          def meta_response(&block)
+            if block_given?
+              route_setting :meta_response, block
+            end
+          end
 
           def set_presenter presenter=nil, &block
             if block_given?
