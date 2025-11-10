@@ -122,7 +122,7 @@ module Plugins
 
               if meta_response.is_a?(Hash)
                 options[:meta] ||= {}
-                options[:meta].merge!(custom_meta)
+                options[:meta].merge!(meta_response)
               end
             end
 
