@@ -6,6 +6,7 @@ module Plugins
         def self.included base
           base.class_eval do
             class_attribute :presenter_name
+            class_attribute :presenter_namespace
           end
           base.extend ClassMethods
           ::Grape::Endpoint.include HelperMethods if defined? ::Grape::Endpoint
@@ -23,7 +24,7 @@ module Plugins
                 presenter_name
               end
             end
-            if respond_to?(:model_class_constant) && model_class_constant.include?(::Plugins::Models::Concerns::ApiResource)
+            if respond_to?(:model_class_constant) && model_class_constant&.include?(::Plugins::Models::Concerns::ApiResource)
               mod = model_class_constant
               ctx = get_value(:resource_context)
               if cfg = mod.grape_api_resource_of(ctx)
@@ -106,13 +107,25 @@ module Plugins
               presenter_name ||= default_presenter_class(collection.class)
             end
             ver = version.try(:upcase)
+            p_namespace = class_context do |context|
+              case context.presenter_namespace
+              when Proc
+                instance_exec(&context.presenter_namespace)
+              else
+                context.presenter_namespace
+              end
+            end
             begin
-              presenter_class = "::#{get_context_engine_namespace}::Grape::#{ver ? "#{ver}::" : ""}Presenters::#{presenter_name}".constantize
+              presenter_class = "#{p_namespace}::#{ver ? "#{ver}::" : ""}#{presenter_name}".safe_constantize || "#{p_namespace}::#{presenter_name}".constantize
             rescue NameError
               begin
-                presenter_class = "::#{get_context_engine_namespace}::#{ver ? "#{ver}::" : ""}::Presenters::#{presenter_name.demodulize}".constantize
+                presenter_class = "::#{get_context_engine_namespace}::Grape::#{ver ? "#{ver}::" : ""}Presenters::#{presenter_name}".constantize
               rescue NameError
-                presenter_class = presenter_name.constantize
+                begin
+                  presenter_class = "::#{get_context_engine_namespace}::#{ver ? "#{ver}::" : ""}::Presenters::#{presenter_name.demodulize}".constantize
+                rescue NameError
+                  presenter_class = presenter_name.constantize
+                end
               end
             end
             raise ArgumentError, "#{presenter_class} should be subclass of #{::Grape::Entity}." unless presenter_class && presenter_class.ancestors.include?(::Grape::Entity)
@@ -211,6 +224,14 @@ module Plugins
               self.presenter_name= block
             else
               self.presenter_name = presenter
+            end
+          end
+
+          def set_presenter_namespace nm= nil, &block
+            if block_given?
+              self.presenter_namespace= block
+            else
+              self.presenter_namespace = nm
             end
           end
 

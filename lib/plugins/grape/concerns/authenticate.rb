@@ -22,6 +22,11 @@ module Plugins
               end
             end
           end
+
+          def skip_authentication!
+            route_setting :skip_authentication, true
+          end
+
         end
 
         module HelperMethods
