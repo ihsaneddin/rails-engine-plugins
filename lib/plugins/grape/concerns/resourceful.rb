@@ -48,6 +48,7 @@ module Plugins
                 resource_params_attributes: [],
                 resource_friendly: false,
                 resource_finder: nil,
+                resource_var_name: nil,
                 query_includes: nil,
                 query_scope: nil,
                 resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
@@ -305,6 +306,18 @@ module Plugins
             end
           end
 
+          def resource_var_name var_name= nil, &block
+             if var_name.blank? && !block_given?
+              resourceful_params(:resource_var_name)
+            else
+              if block_given?
+                set_resource_param(:resource_var_name, block)
+              else
+                set_resource_param(:resource_var_name, var_name)
+              end
+            end
+          end
+
         end
 
         module HelperMethods
@@ -366,7 +379,7 @@ module Plugins
 
           def _set_resource(context=nil)
             return unless @_resource.nil?
-            var_name = _model_klass.demodulize.underscore.downcase
+            var_name = resource_var_name
             @_resource = _get_resource
             instance_variable_set("@#{var_name}", @_resource)
           end
@@ -375,6 +388,10 @@ module Plugins
             got_resource = _identifier_param_present? ? _existing_resource : _new_resource
             get_value(:after_fetch_resource, got_resource) || got_resource
             got_resource
+          end
+
+          def resource_var_name
+            get_value(:resource_var_name) || _model_klass.demodulize.underscore.downcase
           end
 
           def _identifier_param_present?
@@ -522,7 +539,7 @@ module Plugins
 
           def _set_resources()
             return unless @_resources.nil?
-            var_name = get_value(:model_klass).demodulize.underscore.downcase.pluralize
+            var_name = resource_var_name.pluralize
             should_paginate = get_value(:should_paginate)
             @_resources = should_paginate ? paginate(_get_resources) : _get_resources
             instance_variable_set("@#{var_name}", @_resources)
