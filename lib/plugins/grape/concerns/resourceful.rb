@@ -553,8 +553,7 @@ module Plugins
           end
 
           def _resources
-            var_name = _model_klass.demodulize.underscore.pluralize
-            return instance_variable_get("@#{var_name}")
+            return instance_variable_get("@#{resource_var_name.pluralize}")
           end
 
           def record
@@ -562,8 +561,7 @@ module Plugins
           end
 
           def _resource
-            var_name = _model_klass.demodulize.underscore.downcase
-            return instance_variable_get("@#{var_name}")
+            return instance_variable_get("@#{resource_var_name}")
           end
 
           def normalize_file_params!(hash)
