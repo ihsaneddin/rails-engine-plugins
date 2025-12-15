@@ -2,6 +2,110 @@ module Plugins
   module Models
     module Concerns
       class Config
+        class Collection < Config
+          include Enumerable
+          attr_accessor :template, :order
+
+          def initialize(values: {})
+            @template = values.dup
+            @order    = []
+            super(values: {})
+          end
+
+          def allow_new_entries?
+            @_setter_mode
+          end
+
+          def each(resolved: true)
+            return to_enum(:each, resolved: resolved) unless block_given?
+            (order || []).each do |key|
+              entry = values[key]
+              next unless entry
+              resolved_value = resolved ? resolve_entry(key, entry) : nil
+              yield key, entry, resolved_value
+            end
+          end
+
+          def to_a(resolved: true)
+            (order || []).map do |k|
+              entry = values[k]
+              resolved ? resolve_entry(k, entry) : entry
+            end.compact
+          end
+
+          def [](name, resolved: false)
+            entry = values[name.to_sym]
+            return unless entry
+            resolved ? resolve_entry(name, entry) : entry
+          end
+
+          def method_missing(name, *args, &block)
+            key_str = name.to_s
+
+            if key_str.end_with?("=")
+              key   = key_str.chomp("=").to_sym
+              entry = values[key] || (allow_new_entries? ? ensure_entry(key) : super)
+              entry.set(:value, args.first)
+              return entry
+            end
+
+            key = name.to_sym
+            if values.key?(key)
+              entry = values[key]
+              if block
+                entry.start_setter_mode!
+                entry.instance_exec(*args, &block)
+                entry.end_setter_mode!
+              end
+              entry
+            elsif allow_new_entries?
+              entry = ensure_entry(key)
+              if block
+                entry.start_setter_mode!
+                entry.instance_exec(*args, &block)
+                entry.end_setter_mode!
+              end
+              entry
+            else
+              super
+            end
+          end
+
+          def respond_to_missing?(name, include_private = false)
+            key = name.to_s.chomp("=").to_sym
+            values.key?(key) || allow_new_entries? || super
+          end
+
+          def set_context(ctx)
+            @_context = ctx
+            values.each_value { |cfg| cfg.set_context(ctx) }
+          end
+
+          def dup
+            copy = super
+            copy.instance_variable_set(:@template, @template.dup)
+            copy.instance_variable_set(:@order, @order.dup)
+            copy.instance_variable_set(:@_values, values.transform_values { |cfg| cfg.dup })
+            copy
+          end
+
+          private
+
+          def ensure_entry(key)
+            values[key] ||= begin
+              cfg = Config.new(values: (template || {}).merge(value: (template && template[:value]) || key))
+              cfg.dynamic_keys!               # allow value/metrics/etc.
+              cfg.set_context(@_context)
+              order << key
+              cfg
+            end
+          end
+
+          def resolve_entry(key, entry)
+            entry&.value || (@_context && @_context.public_send(key))
+          end
+        end
+
 
         attr_reader :_values, :_context, :_setter_mode, :_supress, :_dynamic_keys
 
@@ -63,12 +167,10 @@ module Plugins
           _config_name = "_#{config_name}"
 
           if base.respond_to?(_config_name)
-            #debugger if ['Transfer', 'In'].include? base.name.demodulize
             default_opts = default_opts.merge(base.send(_config_name).values.dup)
             opts = default_opts.merge(opts.slice(*default_opts.keys))
             base.send(_config_name).instance_variable_set(:@_values, opts.dup)
             base.send("#{_config_name}=", base.send(_config_name).dup)
-            #debugger if ['Transfer', 'In'].include? base.name.demodulize
             if block_given?
               base.send(_config_name).setup(**opts, &block)
             end
@@ -297,12 +399,6 @@ module Plugins
 
         def initialize(values: {}, &block)
           valid_keys?(*values.keys)
-          # values.keys.each do |key|
-          #   if INVALID_KEYS.include?(key.to_s)
-          #     debugger
-          #     raise "Invalid key #{key}"
-          #   end
-          # end
           @_values = values.dup
         end
 
@@ -316,8 +412,9 @@ module Plugins
 
         def set_context(context)
           @_context = context
-          values.each do |key, value|
-            if value.is_a?(Config)
+          values.each do |_, value|
+            case value
+            when Config
               value.set_context(context)
             end
           end
@@ -344,7 +441,17 @@ module Plugins
           valid_key?(key)
           if eligible_key?(key) || @_dynamic_keys
             current_value = @_values[key]
-            if current_value.is_a?(Config)
+            case current_value
+            when Collection
+              if block_given?
+                current_value.start_setter_mode!
+                current_value.instance_exec(*args, &block)
+                current_value.end_setter_mode!
+              elsif args.any?
+                args.flatten.each { |name| current_value.public_send(name) }
+              end
+              @_values[key] = current_value
+            when Config
               if block_given?
                 current_value.start_setter_mode!
                 current_value.instance_exec(*args, &block)
@@ -428,6 +535,13 @@ module Plugins
 
         def [](key)
           @_values[key.to_sym]
+        end
+
+        class Collection < Config
+          include Enumerable
+
+
+
         end
 
       end

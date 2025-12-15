@@ -65,14 +65,14 @@ module Plugins
               case attr_type
               when ::StoreModel::Types::One
                 default_value = model_type.new.public_send(attr_key)
-                nested_klass = attr_type.model_class
-                attribute accessor_name, nested_klass.type, default_value
-                accepts_nested_attributes_for attr_key, reject_if: :all_blank
+                nested_klass = attr_type.model_klass
+                attribute accessor_name, nested_klass.type#, default_value
+                # accepts_nested_attributes_for attr_key, reject_if: :all_blank
               when ::StoreModel::Types::Many
                 default_value = model_type.new.public_send(attr_key)
-                nested_klass = attr_type.model_class
-                attribute accessor_name, nested_klass.to_array_type, default_value
-                accepts_nested_attributes_for attr_key, reject_if: :all_blank
+                nested_klass = attr_type.model_klass
+                attribute accessor_name, nested_klass.to_array_type#, default_value
+                # accepts_nested_attributes_for attr_key, reject_if: :all_blank
               else
                 safe_type = attr_type.duplicable? ? attr_type.dup : attr_type.class.new
                 attribute accessor_name, safe_type
@@ -164,11 +164,11 @@ module Plugins
                 end
 
               when StoreModel::Types::One
-                nested_model = type.model_class
+                nested_model = type.model_klass
                 define_custom_attributes_model_scopes("#{jsonb_attr} -> '#{key}'", nested_model, method_name, array_root: array_root)
 
               when StoreModel::Types::Many
-                nested_model = type.model_class
+                nested_model = type.model_klass
                 define_custom_attributes_model_scopes("#{jsonb_attr} -> '#{key}'", nested_model, method_name, array_root: true)
 
               else
@@ -262,11 +262,11 @@ module Plugins
                 end
 
               when StoreModel::Types::One
-                nested_model = type.model_class
+                nested_model = type.model_klass
                 define_custom_attributes_model_ransackers("#{jsonb_attr} -> '#{key}'", nested_model, method_name, array_root: array_root)
 
               when StoreModel::Types::Many
-                nested_model = type.model_class
+                nested_model = type.model_klass
                 define_custom_attributes_model_ransackers("#{jsonb_attr} -> '#{key}'", nested_model, method_name, array_root: true)
 
               else
@@ -354,12 +354,12 @@ end
 #                 case attr_type
 #                 when ::StoreModel::Types::One
 #                   default_value = model_type.new.public_send(attr_key)
-#                   nested_klass = attr_type.model_class
+#                   nested_klass = attr_type.model_klass
 #                   attribute accessor_name, nested_klass.type, default_value
 #                   accepts_nested_attributes_for attr_key, reject_if: :all_blank
 #                 when ::StoreModel::Types::Many
 #                   default_value = model_type.new.public_send(attr_key)
-#                   nested_klass = attr_type.model_class
+#                   nested_klass = attr_type.model_klass
 #                   attribute accessor_name, nested_klass.to_array_type, default_value
 #                   accepts_nested_attributes_for attr_key, reject_if: :all_blank
 #                 when ::StoreModel::Types::OnePolymorphic, ::StoreModel::Types::ManyPolymorphic

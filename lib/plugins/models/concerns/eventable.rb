@@ -201,7 +201,9 @@ module Plugins
             prefix ||= self.class.name.demodulize.underscore
             bus ||= self.class.eventable_bus_name || :default
             event_name = [prefix, event_name].map(&:to_s).compact.join("_").to_sym
-
+            if payload.blank?
+              payload[:object]= self
+            end
             eventable_bus.instance(bus.to_sym, init: true)
             eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
             eventable_bus.publish(bus.to_sym, event_name, **payload)

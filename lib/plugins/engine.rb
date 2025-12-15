@@ -13,5 +13,12 @@ module Plugins
       # ::Plugins::Models::Concerns::Eventable::SubscribesToEvents.eventable_register_event_buses!
     end
 
+    config.to_prepare do
+       Dir.glob(Rails.root.join("app/subscribers/**/*.rb")).each do |file|
+        require file rescue nil
+      end
+      ::Plugins.config.load_constants!
+    end
+
   end
 end

@@ -15,6 +15,10 @@ module Plugins
         base.permission_class= Plugins::Configuration::Permissions::Permission
 
         base.mattr_accessor :bus
+
+        base.mattr_accessor :load_constants
+        base.load_constants = Set.new
+
         base.bus = Plugins::Configuration::Bus
         base.extend ClassMethods
       end
@@ -57,6 +61,15 @@ module Plugins
           permission_set_class.permission_class= self.permission_class
           permission_set_class.draw_permissions(&block)
         end
+
+        def load_constant *args
+          args.each{|arg| self.load_constants << arg}
+        end
+
+        def load_constants!
+          self.load_constants.each{|const| const.constantize }
+        end
+
       end
 
     end
