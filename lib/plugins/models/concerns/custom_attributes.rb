@@ -281,6 +281,25 @@ module Plugins
             end
           end
 
+          def store_model_klass_of attr
+            type_for_attribute(attr.to_s).model_klass rescue nil
+          end
+
+          def patch_store_model_class!(base:, mod:, name:)
+            @_store_model_metadata_cache ||= {}
+
+            return @_store_model_metadata_cache[name] if @_store_model_metadata_cache.key?(name)
+
+            derived = Class.new(base)
+            derived.include(mod)
+
+            const_set(name, derived) unless const_defined?(name, false)
+
+            klass = const_get(name)
+
+            @_store_model_metadata_cache[name] = klass
+          end
+
         end
       end
     end
