@@ -289,6 +289,7 @@ module Plugins
             @_store_model_metadata_cache ||= {}
 
             return @_store_model_metadata_cache[name] if @_store_model_metadata_cache.key?(name)
+            return unless base
 
             derived = Class.new(base)
             derived.include(mod)
