@@ -81,6 +81,9 @@ module Plugins
             if send("#{ctx}_grape_api_resource_default")
               self.default_grape_api_resource_config_context= "#{ctx}"
             end
+
+            define_inheritable_singleton_method(:grape_api_resource?) { true }
+
             include InstanceMethods
           end
 
@@ -88,7 +91,7 @@ module Plugins
             if ctx.nil?
               ctx = self.default_grape_api_resource_config_context
             end
-            cfg = send("#{ctx}_grape_api_resource_config")
+            cfg = respond_to?("#{ctx}_grape_api_resource_config") ? send("#{ctx}_grape_api_resource_config") : nil
             if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
               return cfg
             end
