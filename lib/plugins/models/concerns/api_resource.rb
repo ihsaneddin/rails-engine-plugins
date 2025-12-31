@@ -11,6 +11,10 @@ module Plugins
           ::Plugins::Models::Concerns::Config
         end
 
+        def self.plugins_collection_config
+          ::Plugins::Models::Concerns::Config::Collection
+        end
+
         def self.grape_action path: "", method: :get, route_options: {}, description: nil, params: {}, &block
           raise "block is required" unless block_given?
           opts = { path: path, method: method, route_options: {}, params: {}, payload: block }
@@ -59,7 +63,9 @@ module Plugins
             query_scope: proc {|query| query },
             after_fetch_resource: nil,
             should_paginate: true,
-            presenter: nil,
+            presenter: "Plugins::Grape::Presenters::Generic",
+            resource_actions: plugins_collection_config.build(**{ http_method: "get" }),
+            collection_actions: plugins_collection_config.build(**{ http_method: "get" }),
           }
 
         end
@@ -89,7 +95,7 @@ module Plugins
 
           def grape_api_resource_of(ctx=nil)
             if ctx.nil?
-              ctx = self.default_grape_api_resource_config_context
+              ctx = self.try(:default_grape_api_resource_config_context) || "default"
             end
             cfg = respond_to?("#{ctx}_grape_api_resource_config") ? send("#{ctx}_grape_api_resource_config") : nil
             if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)

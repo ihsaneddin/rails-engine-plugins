@@ -7,6 +7,7 @@ module Plugins
     autoload :ConfigBuilder, "plugins/decorators/config_builder"
     autoload :Registered, "plugins/decorators/registered"
     autoload :Traits, "plugins/decorators/traits"
+    autoload :Hooks, "plugins/decorators/hooks"
 
     def self.method_annotations
       MethodAnnotations
@@ -34,6 +35,10 @@ module Plugins
 
     def self.traits
       Traits
+    end
+
+    def self.hooks
+      Hooks
     end
 
   end

@@ -175,7 +175,7 @@ module Plugins
 
             def inherited(subclass)
               super(subclass)
-
+              return unless subclass.name
               subclass_prefix = subclass.name.demodulize.underscore
               if subclass.eventable_events
                 subclass.eventable_events.each do |_method, events|

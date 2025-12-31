@@ -348,7 +348,8 @@ module Plugins
 
             if value.nil? && ![:model_klass, :resource_context].include?(key)
               mod = model_class_constant
-              if mod.include?(::Plugins::Models::Concerns::ApiResource)
+              if mod.respond_to?(:grape_api_resource?) && mod.grape_api_resource?
+              # if mod.include?(::Plugins::Models::Concerns::ApiResource)
                 if cfg = mod.grape_api_resource_of(value)
                   args << self
                   value = cfg.get(key, *args) if cfg.exists?(key)

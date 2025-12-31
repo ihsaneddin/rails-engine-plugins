@@ -1,6 +1,7 @@
 module Plugins
   module Grape
     autoload :Concerns, "plugins/grape/concerns"
+    autoload :Presenters, "plugins/grape/presenters"
 
     extend ActiveSupport::Concern
 
