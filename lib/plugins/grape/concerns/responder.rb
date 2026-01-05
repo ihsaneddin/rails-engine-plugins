@@ -199,7 +199,7 @@ module Plugins
           def pagination_info
             hash = {}
             if header
-              config = self.class.api_config.pagination.config
+              config = self.class_context.api_config.pagination.config
               hash[config.per_page] = header[config.per_page].to_i
               hash[config.page] = header[config.page].to_i if config.page
               if config.include_total

@@ -20,51 +20,15 @@ module Plugins
 
       def self.included(base)
         base.helpers do
-          def _define_api_config(config = Plugins.config.grape_api)
-            if(config)
-              unless self.class.respond_to?(:api_config)
-                # self.class.class_eval do
-                #   self.class_attribute :api_config
-                # end
-                self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
-                self.class.inheritable_class_attribute :api_config
-              end
-              # self.class.class_eval do
-              #   self.api_config= config
-              # end
-              self.class.api_config= config
-            end
-            self.class.api_config
-          end
-
           def api_config
-            #self.class.api_config
+            #self.class_context.api_config
             class_context.api_config
           end
 
-          # def _define_class_context(context)
-          #   unless self.class.respond_to?(:context)
-          #     self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
-          #     # self.class.class_eval do
-          #     #   class_attribute :context
-          #     # end
-          #     self.class.inheritable_class_attribute :context
-          #   end
-          #   self.class.context = context
-          #   self.class.context
-          # end
-
           def class_context &block
-            # if self.class.respond_to?(:context) && self.class.context
-            #   block_given?? yield(self.class.context) : self.class.context
-            # end
             block_given?? yield(env['api.endpoint'].options[:for].base) : env['api.endpoint'].options[:for].base
           end
 
-        end
-        cfg = base.api_config
-        base.before do
-          _define_api_config(cfg)
         end
         base.extend ClassMethods
         base.include Plugins::Grape::Concerns::Paginated
