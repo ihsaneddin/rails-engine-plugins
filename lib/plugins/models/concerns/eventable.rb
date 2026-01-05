@@ -148,7 +148,7 @@ module Plugins
 
               events.each do |event_name|
                 eventable_bus.instance(bus_name.to_sym, init: true)
-                eventable_bus.register(bus_name.to_sym, [prefix, event_name].join("_").to_sym)
+                eventable_bus.register(bus_name.to_sym, [prefix, event_name].reject(&:blank?).join("_").to_sym)
               end
             end
 
@@ -157,7 +157,7 @@ module Plugins
               events.each do |eb|
                 eb[:prefixes].each do |prefix|
                   eventable_bus.instance(eb[:bus], init: true)
-                  eventable_bus.publish(eb[:bus], [prefix, eb[:event_name]].join("_").to_sym, **payload)
+                  eventable_bus.publish(eb[:bus], [prefix, eb[:event_name]].reject(&:blank?).join("_").to_sym, **payload)
                 end
               end
             end
@@ -167,7 +167,7 @@ module Plugins
                 events.each do |eb|
                   eb[:prefixes].each do |prefix|
                     eventable_bus.instance(eb[:bus], init: true)
-                    eventable_bus.register(eb[:bus], [prefix, eb[:event_name]].join("_").to_sym)
+                    eventable_bus.register(eb[:bus], [prefix, eb[:event_name]].reject(&:blank?).join("_").to_sym)
                   end
                 end
               end
@@ -200,7 +200,7 @@ module Plugins
           def publish_event(event_name, bus: nil, prefix: nil, **payload)
             prefix ||= self.class.name.demodulize.underscore
             bus ||= self.class.eventable_bus_name || :default
-            event_name = [prefix, event_name].map(&:to_s).compact.join("_").to_sym
+            event_name = [prefix, event_name].map(&:to_s).compact.reject(&:blank?).join("_").to_sym
             if payload.blank?
               payload[:object]= self
             end

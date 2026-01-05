@@ -54,6 +54,7 @@ module Plugins
 
         def self.default_options
           {
+            use_api_evaluation: false,
             default: false,
             resource_finder: proc { |query, identifier, api| query.find_by!(identifier) },
             resources_finder: proc { |query, identifier, api|  query.where(identifier) },

@@ -9,7 +9,14 @@ module Plugins
             self.resourceful_params_ = {}
           end
           base.extend ClassMethods
-          ::Grape::Endpoint.include HelperMethods if defined? ::Grape::Endpoint
+          base.extend Events::ResourceActions
+          if defined? ::Grape::Endpoint
+            ::Grape::Endpoint.include HelperMethods
+            ::Grape::Endpoint.extend Events::ResourceActions
+          end
+          if defined? ::Grape::API::Instance
+            ::Grape::API::Instance.extend Events::ResourceActions
+          end
         end
 
         class Blocks
@@ -349,10 +356,16 @@ module Plugins
             if value.nil? && ![:model_klass, :resource_context].include?(key)
               mod = model_class_constant
               if mod.respond_to?(:grape_api_resource?) && mod.grape_api_resource?
-              # if mod.include?(::Plugins::Models::Concerns::ApiResource)
-                if cfg = mod.grape_api_resource_of(value)
-                  args << self
-                  value = cfg.get(key, *args) if cfg.exists?(key)
+                ctx = resource_context
+                if cfg = mod.grape_api_resource_of(ctx)
+                  if cfg.use_api_evaluation
+                    cfg.with_context(self) do
+                      value = cfg.get(key, *args) if cfg.exists?(key)
+                    end
+                  else
+                    args << self
+                    value = cfg.get(key, *args) if cfg.exists?(key)
+                  end
                 end
               end
             end
@@ -597,6 +610,59 @@ module Plugins
               tempfile: value[:tempfile],
               head:     value[:head]
             )
+          end
+
+        end
+
+        module Events
+          module ResourceActions
+
+            def resource_actions_for(*args)
+              opts = args.extract_options!
+              klass = args[0]
+              context = args[1] || "default"
+              path = opts[:path] || ""
+              action_name = opts[:action_name] || "resource_actions"
+              route_opts = opts[:route_options] || {}
+              route [:get, :post, :put, :delete],
+                    [path, ":#{action_name.to_s}"].join("/"),
+                    route_opts do
+
+                not_found = -> { standard_not_found_error(message: "Not found") }
+
+                klass = case klass
+                when String
+                  klass.constantize
+                when Proc
+                  instance_exec(&klass)
+                when Symbol
+                  send(klass)
+                else
+                  klass
+                end
+
+                cfg   = klass.grape_api_resource_of(context)
+                key   = params[action_name.to_sym].to_s.to_sym
+                entry = cfg&.resource_actions&.[](key)
+                not_found.call unless entry
+
+                entry.with_context(self) do
+                  allowed_method =
+                    entry.http_method.to_s.downcase.to_sym ==
+                    request.request_method.to_s.downcase.to_sym
+
+                  not_found.call unless allowed_method
+
+                  entry.value
+                end
+
+              end
+            end
+
+          end
+
+          module CollectionActions
+
           end
 
         end

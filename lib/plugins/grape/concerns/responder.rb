@@ -28,7 +28,13 @@ module Plugins
               mod = model_class_constant
               ctx = get_value(:resource_context)
               if cfg = mod.grape_api_resource_of(ctx)
-                p_name = cfg.presenter
+                if cfg.use_api_evaluation
+                  cfg.with_context(self) do
+                    p_name = cfg.presenter
+                  end
+                else
+                  p_name = cfg.presenter
+                end
               end
             end
             p_name

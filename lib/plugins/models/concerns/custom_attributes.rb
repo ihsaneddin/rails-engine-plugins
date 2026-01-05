@@ -58,6 +58,8 @@ module Plugins
                 model_instance = public_send(jsonb_attr) || self.class.attribute_types[jsonb_attr.to_s].deserialize({})
                 public_send("#{jsonb_attr}=", model_instance)
                 model_instance.public_send("#{attr_key}=", value)
+                attribute_will_change!(accessor_name)
+                value
               end unless method_defined?("#{accessor_name}=")
 
               # register virtual attribute

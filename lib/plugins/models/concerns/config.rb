@@ -46,20 +46,28 @@ module Plugins
               key   = key_str.chomp("=").to_sym
               entry = values[key] || (allow_new_entries? ? ensure_entry(key) : super)
               entry.set(:value, args.first)
-              return entry
+              return entry.get(:value)
             end
 
             key = name.to_sym
             if values.key?(key)
               entry = values[key]
+              if args.any?
+                val = args.first
+                entry.set(:value, val)
+              end
               if block
                 entry.start_setter_mode!
                 entry.instance_exec(*args, &block)
                 entry.end_setter_mode!
               end
-              entry
+              entry.get(:value)
             elsif allow_new_entries?
               entry = ensure_entry(key)
+              if args.any?
+                val = args.first
+                entry.set(:value, val)
+              end
               if block
                 entry.start_setter_mode!
                 entry.instance_exec(*args, &block)
