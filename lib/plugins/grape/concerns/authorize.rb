@@ -5,10 +5,10 @@ module Plugins
 
         def self.included(base)
           base.inheritable_class_attribute :_skip_authorization
-          base.before do
-            self.class.inheritable_class_attribute :_skip_authorization
-            self.class._skip_authorization= base._skip_authorization
-          end
+          # base.before do
+          #   self.class.inheritable_class_attribute :_skip_authorization
+          #   self.class._skip_authorization= base._skip_authorization
+          # end
           base.extend ClassMethods
           base.helpers HelperMethods
           base.requires_authorization! if base.api_config.requires_authorization
@@ -17,7 +17,7 @@ module Plugins
         module ClassMethods
           def requires_authorization!
             before do
-              unless self.class._skip_authorization || skip_authorization?
+              unless self.class_context._skip_authorization || skip_authorization?
                 authorize_route!
               end
             end

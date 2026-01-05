@@ -5,10 +5,10 @@ module Plugins
 
         def self.included(base)
           base.inheritable_class_attribute :_skip_authentication
-          base.before do
-            self.class.inheritable_class_attribute :_skip_authentication
-            self.class._skip_authentication= base._skip_authentication
-          end
+          # base.before do
+          #   self.class.inheritable_class_attribute :_skip_authentication
+          #   self.class._skip_authentication= base._skip_authentication
+          # end
           base.extend ClassMethods
           base.helpers HelperMethods
           base.requires_authentication! if base.api_config.requires_authentication
@@ -17,7 +17,7 @@ module Plugins
         module ClassMethods
           def requires_authentication!
             before do
-              unless self.class._skip_authentication || skip_authentication?
+              unless self.class_context._skip_authentication || skip_authentication?
                 authenticate!
               end
             end

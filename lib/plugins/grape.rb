@@ -38,25 +38,27 @@ module Plugins
           end
 
           def api_config
-            self.class.api_config
+            #self.class.api_config
+            class_context.api_config
           end
 
-          def _define_class_context(context)
-            unless self.class.respond_to?(:context)
-              self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
-              # self.class.class_eval do
-              #   class_attribute :context
-              # end
-              self.class.inheritable_class_attribute :context
-            end
-            self.class.context = context
-            self.class.context
-          end
+          # def _define_class_context(context)
+          #   unless self.class.respond_to?(:context)
+          #     self.class.include ::Plugins::Decorators::Inheritables::InheritableClassAttribute
+          #     # self.class.class_eval do
+          #     #   class_attribute :context
+          #     # end
+          #     self.class.inheritable_class_attribute :context
+          #   end
+          #   self.class.context = context
+          #   self.class.context
+          # end
 
           def class_context &block
-            if self.class.respond_to?(:context) && self.class.context
-              block_given?? yield(self.class.context) : self.class.context
-            end
+            # if self.class.respond_to?(:context) && self.class.context
+            #   block_given?? yield(self.class.context) : self.class.context
+            # end
+            block_given?? yield(env['api.endpoint'].options[:for].base) : env['api.endpoint'].options[:for].base
           end
 
         end
@@ -79,15 +81,15 @@ module Plugins
           if defined?(super)
             super
           end
-          subclass.define_context
+          #subclass.define_context
         end
 
-        def define_context
-          ctx = self
-          before do
-            _define_class_context(ctx)
-          end
-        end
+        # def define_context
+        #   ctx = self
+        #   before do
+        #     _define_class_context(ctx)
+        #   end
+        # end
       end
 
 

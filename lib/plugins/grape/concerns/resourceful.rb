@@ -44,6 +44,13 @@ module Plugins
 
         module ClassMethods
 
+          def inherited(sub)
+            super(sub)
+            unless self.resourceful_params_[self.to_s].blank?
+              sub.resourceful_params_[sub.name] = self.resourceful_params.dup
+            end
+          end
+
           def resourceful_params key=nil
             if self.resourceful_params_[self.to_s].blank?
               self.resourceful_params_[self.to_s] = {
@@ -352,7 +359,6 @@ module Plugins
             value = class_context do |context|
               context.resourceful_params key.to_sym
             end
-
             if value.nil? && ![:model_klass, :resource_context].include?(key)
               mod = model_class_constant
               if mod.respond_to?(:grape_api_resource?) && mod.grape_api_resource?
