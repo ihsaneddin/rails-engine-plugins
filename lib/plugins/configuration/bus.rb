@@ -1,6 +1,10 @@
 module Plugins
   module Configuration
     module Bus
+
+      mattr_accessor :clear_all
+      @@clear_all = false
+
       @@registered_buses = {}
       @@blocks = []
 
@@ -94,7 +98,7 @@ module Plugins
         with_instance(name) { |bus| bus.clear }
       end
 
-      def self.clear_all
+      def self.clear_all!
         @@registered_buses.each_key { |name| clear(name) }
       end
     end

@@ -15,13 +15,14 @@ module Plugins
           super(base) if defined?(super)
         end
 
-        def register_class klass
-          self.registered_classes << klass
+        def register_class(klass)
+          new_set = (registered_classes || Set.new).dup
+          new_set << klass
+          self.registered_classes = new_set
         end
 
-        def <<(klass)
-          register_class klass
-        end
+        alias << register_class
+
       end
 
     end

@@ -15,7 +15,7 @@ module Plugins
               att = "#{rassoc.name}_classes"
               class_attribute att unless respond_to?(att)
               send("#{att}=", {}) unless send(att).is_a?(Hash)
-              if send("#{att}")[new_assoc] == base_class.to_s
+              if send("#{att}")[new_assoc] == base_class.to_s && reflect_on_association(new_assoc.to_sym)
                 return
               end
               send("#{att}")[new_assoc] = base_class.to_s
@@ -38,6 +38,39 @@ module Plugins
               #     end
               #   end
               # CODE
+            end
+          end
+
+          def define_alternative_of_relation(klass, relation: :context, assoc_names: [])
+            if assoc_names.blank?
+              parts = klass.name.split("::").map(&:underscore)
+              assoc_names = (0...parts.size).map do |i|
+                parts[i..].join("_")
+              end.map(&:to_sym)
+            end
+            assoc_names.reverse_each do |assoc_name|
+              assoc_name = "#{relation}_of_#{assoc_name}".to_sym
+              association = reflect_on_association(assoc_name)
+              if association
+                break if association.klass.name == klass.name
+              else
+                define_alternative_polymorphic_parent_association assoc: relation, new_assoc: assoc_name, base_class: klass.base_class
+                break
+              end
+            end
+          end
+
+          def define_alternative_of_has_many_through_polymorphic_relation(klass, relation: nil, source: nil)
+            parts = klass.name.split("::").map(&:underscore)
+            assoc_names = (0...parts.size).map do |i|
+              parts[i..].join("_")
+            end.map(&:to_sym)
+            assoc_names.reverse_each do |assoc_name|
+              assoc_name = "#{assoc_name.pluralize}".to_sym
+              unless reflect_on_association(assoc_name)
+                klass.has_many assoc_name, through: relation, source: source, source_type: klass.base_class.name
+                break
+              end
             end
           end
 

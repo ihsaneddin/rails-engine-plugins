@@ -185,6 +185,7 @@ module Plugins
             base.send(_config_name).set_context(base)
           else
             base.include ::Plugins.decorators.inheritables.singleton_methods
+            base.include ::Plugins.decorators.smart_send
             base.inheritable_class_attribute _config_name.to_sym
 
             opts = default_opts.merge(opts.slice(*default_opts.keys))
@@ -431,7 +432,7 @@ module Plugins
         def evaluate_with_context(val, *args)
           if @_context
             if val.is_a?(Symbol)
-              @_context.send(val, *args)
+              @_context.smart_send(val, args)
             elsif val.is_a?(Proc)
               @_context.instance_exec(*args, &val)
             elsif val.is_a?(UnboundMethod)
