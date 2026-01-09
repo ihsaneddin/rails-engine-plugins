@@ -62,6 +62,7 @@ module Plugins
             resource_finder_key: "id",
             resource_params_attributes: [],
             query_scope: proc {|query| query },
+            query_includes: nil,
             after_fetch_resource: nil,
             should_paginate: true,
             presenter: "Plugins::Grape::Presenters::Generic",
@@ -102,6 +103,10 @@ module Plugins
             if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
               return cfg
             end
+          end
+
+          def grape_api_resource?
+            false
           end
 
         end

@@ -8,6 +8,10 @@ module Plugins
       @@registered_buses = {}
       @@blocks = []
 
+      def self.registered_buses
+        @@registered_buses
+      end
+
       def self.setup(&block)
         @@blocks << block if block_given?
       end

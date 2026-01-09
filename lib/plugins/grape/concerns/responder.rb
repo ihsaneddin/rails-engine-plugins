@@ -41,16 +41,27 @@ module Plugins
           end
 
           def get_context_engine_namespace
-            if self.try(:class_context)
-              class_context do |context|
-                context.name.split("::")[0]
+            return unless respond_to?(:class_context)
+
+            class_context do |context|
+              ctx_name = context.name
+              if ctx_name.blank? && context.respond_to?(:api_config)
+                api_ns = context.api_config&.base_api_namespace
+                ctx_name = api_ns if api_ns.present?
               end
+              ctx_name ||= context.superclass&.name
+              ctx_name&.split("::")&.first
             end
           end
 
           def default_presenter_class model
             default = [model.name.demodulize.classify]
-            default.unshift(get_context_engine_namespace, "Grape", "Presenters")
+            engine = get_context_engine_namespace
+            if engine
+              default.unshift(engine, "Grape", "Presenters")
+            else
+              default.unshift("Grape", "Presenters")
+            end
             default.join("::")
           end
 

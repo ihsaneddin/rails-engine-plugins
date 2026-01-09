@@ -13,9 +13,11 @@ module Plugins
           if defined? ::Grape::Endpoint
             ::Grape::Endpoint.include HelperMethods
             ::Grape::Endpoint.extend Events::ResourceActions
+            ::Grape::Endpoint.extend Events::CollectionActions
           end
           if defined? ::Grape::API::Instance
             ::Grape::API::Instance.extend Events::ResourceActions
+            ::Grape::API::Instance.extend Events::CollectionActions
           end
         end
 
@@ -44,22 +46,30 @@ module Plugins
 
         module ClassMethods
 
-          def inherited(sub)
-            super(sub)
-            unless self.resourceful_params_[self.to_s].blank?
-              sub.resourceful_params_[sub.name] = self.resourceful_params.dup
-            end
+          def resourceful_params_key
+            name || to_s
           end
 
+          def inherited(sub)
+            super(sub)
+            parent_key = self.to_s
+            sub_key = sub.name || sub.to_s
+            return if self.resourceful_params_[parent_key].blank?
+
+            sub.resourceful_params_[sub_key] = self.resourceful_params_[parent_key].dup
+          end
+
+
           def resourceful_params key=nil
-            if self.resourceful_params_[self.to_s].blank?
-              self.resourceful_params_[self.to_s] = {
+            params_key = resourceful_params_key
+            if resourceful_params_[params_key].blank?
+              resourceful_params_[params_key] = {
                 resource_context: nil,
                 executed: [],
                 model_klass: nil,
                 resource_identifier: nil,
                 resource_finder_key: nil,
-                resource_params_attributes: [],
+                resource_params_attributes: nil,
                 resource_friendly: false,
                 resource_finder: nil,
                 resource_var_name: nil,
@@ -72,9 +82,9 @@ module Plugins
               }
             end
             if(key)
-              return self.resourceful_params_[self.to_s][key]
+              return resourceful_params_[params_key][key]
             else
-              return self.resourceful_params_[self.to_s]
+              return resourceful_params_[params_key]
             end
           end
 
@@ -84,14 +94,16 @@ module Plugins
           end
 
           def resourceful_params_merge! opts = {}
+            params_key = resourceful_params_key
             current_opts = resourceful_params
             current_opts = current_opts.merge!(opts)
-            self.resourceful_params_[self.to_s] = current_opts
+            resourceful_params_[params_key] = current_opts
           end
 
           def set_resource_param key, value
-            self.resourceful_params if self.resourceful_params_[self.to_s].blank?
-            self.resourceful_params_[self.to_s][key] = value
+            params_key = resourceful_params_key
+            resourceful_params if resourceful_params_[params_key].blank?
+            resourceful_params_[params_key][key] = value
           end
 
           def add_resource_actions *actions
@@ -365,8 +377,8 @@ module Plugins
                 ctx = resource_context
                 if cfg = mod.grape_api_resource_of(ctx)
                   if cfg.use_api_evaluation
-                    cfg.with_context(self) do
-                      value = cfg.get(key, *args) if cfg.exists?(key)
+                    value = cfg.with_context(self) do
+                      cfg.get(key, *args) if cfg.exists?(key)
                     end
                   else
                     args << self
@@ -411,7 +423,7 @@ module Plugins
           end
 
           def resource_var_name
-            get_value(:resource_var_name) || _model_klass.demodulize.underscore.downcase
+            get_value(:resource_var_name) || model_class_constant.name.demodulize.underscore.downcase
           end
 
           def _identifier_param_present?
@@ -474,7 +486,7 @@ module Plugins
               attributes  = declared_permitted_params
               if attributes.empty?
                 if posts.present?
-                  _resource_params_attributes_ = get_value :resource_params_attributes
+                  _resource_params_attributes_ = get_value(:resource_params_attributes) || []
                   if _resource_params_attributes_.blank?
                     attributes = {}
                   else
@@ -668,6 +680,45 @@ module Plugins
           end
 
           module CollectionActions
+
+            def collection_actions_for(*args)
+              opts = args.extract_options!
+              klass = args[0]
+              context = args[1] || "default"
+              path = opts[:path] || ""
+              action_name = opts[:action_name] || "collection_actions"
+              route_opts = opts[:route_options] || {}
+              route [:get, :post, :put, :delete],
+                    [path, ":#{action_name.to_s}"].join("/"),
+                    route_opts do
+
+                not_found = -> { standard_not_found_error(message: "Not found") }
+
+                klass = case klass
+                when String
+                  klass.constantize
+                when Proc
+                  instance_exec(&klass)
+                when Symbol
+                  send(klass)
+                else
+                  klass
+                end
+                cfg   = klass.grape_api_resource_of(context)
+                key   = params[action_name.to_sym].to_s.to_sym
+                entry = cfg&.collection_actions&.[](key)
+                not_found.call unless entry
+                entry.with_context(self) do
+                  allowed_method =
+                    entry.http_method.to_s.downcase.to_sym ==
+                    request.request_method.to_s.downcase.to_sym
+
+                  not_found.call unless allowed_method
+                  entry.value
+                end
+
+              end
+            end
 
           end
 

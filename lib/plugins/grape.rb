@@ -54,6 +54,19 @@ module Plugins
         #     _define_class_context(ctx)
         #   end
         # end
+
+        def mount_with_context(*api_classes, &block)
+          api_classes.each do |api_class|
+            klass = Class.new(api_class)
+
+            setup = api_class.instance_variable_get(:@setup)
+            klass.instance_variable_set(:@setup, setup.dup) if setup
+            klass.replay_setup_on(klass.base_instance) if setup
+
+            klass.class_exec(api_class, &block) if block_given?
+            mount klass
+          end
+        end
       end
 
 

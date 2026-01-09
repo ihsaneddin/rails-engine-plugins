@@ -52,27 +52,59 @@ module Plugins
             key = name.to_sym
             if values.key?(key)
               entry = values[key]
-              if args.any?
-                val = args.first
-                entry.set(:value, val)
-              end
               if block
-                entry.start_setter_mode!
-                entry.instance_exec(*args, &block)
-                entry.end_setter_mode!
+               opts = args.extract_options!
+                if opts.blank?
+                  entry.start_setter_mode!
+                  entry.instance_exec(*args, &block)
+                  entry.end_setter_mode!
+                else
+                  entry.setup(**opts)
+                  entry.set(:value,block)
+                end
+              else
+                if args.any?
+                  val = args.first
+                  entry.set(:value, val)
+                end
               end
+              # if args.any?
+              #   val = args.first
+              #   entry.set(:value, val)
+              # end
+              # if block
+              #   entry.start_setter_mode!
+              #   entry.instance_exec(*args, &block)
+              #   entry.end_setter_mode!
+              # end
               entry.get(:value)
             elsif allow_new_entries?
               entry = ensure_entry(key)
-              if args.any?
-                val = args.first
-                entry.set(:value, val)
-              end
               if block
-                entry.start_setter_mode!
-                entry.instance_exec(*args, &block)
-                entry.end_setter_mode!
+                opts = args.extract_options!
+                if opts.blank?
+                  entry.start_setter_mode!
+                  entry.instance_exec(*args, &block)
+                  entry.end_setter_mode!
+                else
+                  entry.setup(**opts)
+                  entry.set(:value,block)
+                end
+              else
+                if args.any?
+                  val = args.first
+                  entry.set(:value, val)
+                end
               end
+              # if args.any?
+              #   val = args.first
+              #   entry.set(:value, val)
+              # end
+              # if block
+              #   entry.start_setter_mode!
+              #   entry.instance_exec(*args, &block)
+              #   entry.end_setter_mode!
+              # end
               entry
             else
               super
@@ -235,17 +267,15 @@ module Plugins
 
         def setup **opts, &block
           begin
-          opts.each do |key, value|
-            @_values[key] = opts[key.to_s.to_sym] if eligible_key?(key) || @_dynamic_keys
-          end
-          if block_given?
-            start_setter_mode!
-            instance_exec(&block)
-            end_setter_mode!
-          end
-          rescue => e
-            puts e.backtrace
-            raise e
+            opts.each do |key, value|
+              @_values[key] = opts[key.to_s.to_sym] if eligible_key?(key) || @_dynamic_keys
+            end
+            if block_given?
+              start_setter_mode!
+              instance_exec(&block)
+              end_setter_mode!
+            end
+            self
           end
         end
 

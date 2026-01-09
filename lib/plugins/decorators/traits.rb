@@ -11,7 +11,7 @@ module Plugins
           mod.singleton_class.prepend Module.new {
             def extended(trait_mod)
               super(trait_mod) if defined?(super)
-              self.trait_registration(trait_mod)
+              self.register_trait(trait_mod)
             end
           }
         end
@@ -31,13 +31,9 @@ module Plugins
 
         def register_trait mod
           registered_traits << mod
-        end
-
-        def trait_registration(trait_mod)
-          register_trait(trait_mod)
           registered_classes.each do |klass|
-            define_trait_flag_methods(klass, trait_mod)
-            include_trait_class_methods(klass, trait_mod)
+            define_trait_flag_methods(klass, mod)
+            include_trait_class_methods(klass, mod)
           end
         end
 
