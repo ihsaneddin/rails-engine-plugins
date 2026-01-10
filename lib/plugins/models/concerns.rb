@@ -13,6 +13,7 @@ module Plugins
       autoload :ApiResource, "plugins/models/concerns/api_resource"
       autoload :ThreadSafe, "plugins/models/concerns/thread_safe"
       autoload :TracksTransactionRoot, "plugins/models/concerns/tracks_transaction_root"
+      autoload :AssociationHelpers, "plugins/models/concerns/association_helpers"
     end
   end
 end

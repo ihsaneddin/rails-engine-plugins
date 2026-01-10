@@ -658,20 +658,30 @@ module Plugins
                 else
                   klass
                 end
-
                 cfg   = klass.grape_api_resource_of(context)
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.resource_actions&.[](key)
                 not_found.call unless entry
 
-                entry.with_context(self) do
-                  allowed_method =
-                    entry.http_method.to_s.downcase.to_sym ==
-                    request.request_method.to_s.downcase.to_sym
+                allowed_method =
+                  entry.http_method.to_s.downcase.to_sym ==
+                  request.request_method.to_s.downcase.to_sym
 
-                  not_found.call unless allowed_method
+                not_found.call unless allowed_method
 
-                  entry.value
+                method_params = entry.params
+                if method_params.is_a?(Array)
+                  method_params = posts.permit(method_params)
+                end
+
+                define_singleton_method("#{key}_params") { method_params }
+
+                if cfg.use_api_evaluation
+                  entry.with_context(self) do
+                    entry.value
+                  end
+                else
+                  presenter entry.value(send("#{key}_params"))
                 end
 
               end
@@ -708,15 +718,27 @@ module Plugins
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.collection_actions&.[](key)
                 not_found.call unless entry
-                entry.with_context(self) do
-                  allowed_method =
-                    entry.http_method.to_s.downcase.to_sym ==
-                    request.request_method.to_s.downcase.to_sym
 
-                  not_found.call unless allowed_method
-                  entry.value
+                allowed_method =
+                  entry.http_method.to_s.downcase.to_sym ==
+                  request.request_method.to_s.downcase.to_sym
+
+                not_found.call unless allowed_method
+
+                method_params = entry.params
+                if method_params.is_a?(Array)
+                  method_params = posts.permit(method_params)
                 end
 
+                define_singleton_method("#{key}_params") { method_params }
+
+                if cfg.use_api_evaluation
+                  entry.with_context(self) do
+                    entry.value
+                  end
+                else
+                  presenter entry.value(send("#{key}_params"))
+                end
               end
             end
 
