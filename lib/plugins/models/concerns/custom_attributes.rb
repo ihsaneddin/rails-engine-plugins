@@ -68,7 +68,7 @@ module Plugins
               when ::StoreModel::Types::One
                 default_value = model_type.new.public_send(attr_key)
                 nested_klass = attr_type.model_klass
-                attribute accessor_name, nested_klass.type#, default_value
+                attribute accessor_name, nested_klass.to_type#, default_value
                 # accepts_nested_attributes_for attr_key, reject_if: :all_blank
               when ::StoreModel::Types::Many
                 default_value = model_type.new.public_send(attr_key)

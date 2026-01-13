@@ -3,6 +3,7 @@ require "plugins/engine"
 require 'store_model'
 require 'ransack'
 require 'omnes'
+require 'with_advisory_lock'
 
 module Plugins
   autoload :Configuration, "plugins/configuration"

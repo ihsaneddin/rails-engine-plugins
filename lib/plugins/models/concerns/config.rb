@@ -63,12 +63,12 @@ module Plugins
                   entry.set(:value,block)
                 end
               else
-                if args.any?
+                if args.length > 0
                   val = args.first
                   entry.set(:value, val)
                 end
               end
-              # if args.any?
+              # if args.length > 0
               #   val = args.first
               #   entry.set(:value, val)
               # end
@@ -91,12 +91,12 @@ module Plugins
                   entry.set(:value,block)
                 end
               else
-                if args.any?
+                if args.length > 0
                   val = args.first
                   entry.set(:value, val)
                 end
               end
-              # if args.any?
+              # if args.length > 0
               #   val = args.first
               #   entry.set(:value, val)
               # end
@@ -182,6 +182,7 @@ module Plugins
             remove_keys
             only_key
             only_keys
+            config
           ]
 
         module InheritableClassAttribute
@@ -486,7 +487,7 @@ module Plugins
                 current_value.start_setter_mode!
                 current_value.instance_exec(*args, &block)
                 current_value.end_setter_mode!
-              elsif args.any?
+              elsif args.length > 0
                 args.flatten.each { |name| current_value.public_send(name) }
               end
               @_values[key] = current_value
@@ -545,7 +546,7 @@ module Plugins
                   set(key, *args)
                 end
               else
-                if args.any? || block_given?
+                if args.length > 0 || block_given?
                   set(key, *args, &block)
                 else
                   raise ArgumentError
