@@ -96,14 +96,21 @@ module Plugins
           end
 
           def grape_api_resource_of(ctx=nil)
-            if ctx.nil?
-              ctx = self.try(:default_grape_api_resource_config_context) || "default"
-            end
-            cfg = respond_to?("#{ctx}_grape_api_resource_config") ? send("#{ctx}_grape_api_resource_config") : nil
-            if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
-              return cfg
-            end
+            ctx ||= try(:default_grape_api_resource_config_context) || "default"
+            cfg = _grape_api_resource_config_for(ctx)
+            return cfg if cfg
+
+            fallback = try(:default_grape_api_resource_config_context)
+            return if fallback.nil? || fallback.to_s == ctx.to_s
+
+            _grape_api_resource_config_for(fallback)
           end
+
+          def _grape_api_resource_config_for(ctx)
+            cfg = respond_to?("#{ctx}_grape_api_resource_config") ? send("#{ctx}_grape_api_resource_config") : nil
+            cfg.is_a?(::Plugins::Models::Concerns::Config) ? cfg : nil
+          end
+          private :_grape_api_resource_config_for
 
           def grape_api_resource?
             false
@@ -113,14 +120,21 @@ module Plugins
 
         module InstanceMethods
           def grape_api_resource_of(ctx=nil)
-            if ctx.nil?
-              ctx = self.class.default_grape_api_resource_config_context
-            end
-            cfg = send("#{ctx}_grape_api_resource_config")
-            if cfg && cfg.is_a?(::Plugins::Models::Concerns::Config)
-              return cfg
-            end
+            ctx ||= self.class.default_grape_api_resource_config_context
+            cfg = _grape_api_resource_config_for(ctx)
+            return cfg if cfg
+
+            fallback = self.class.default_grape_api_resource_config_context
+            return if fallback.nil? || fallback.to_s == ctx.to_s
+
+            _grape_api_resource_config_for(fallback)
           end
+
+          def _grape_api_resource_config_for(ctx)
+            cfg = respond_to?("#{ctx}_grape_api_resource_config") ? send("#{ctx}_grape_api_resource_config") : nil
+            cfg.is_a?(::Plugins::Models::Concerns::Config) ? cfg : nil
+          end
+          private :_grape_api_resource_config_for
         end
 
       end

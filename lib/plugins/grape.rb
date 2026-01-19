@@ -57,16 +57,23 @@ module Plugins
 
         def mount_with_context(*api_classes, &block)
           api_classes.each do |api_class|
-            klass = Class.new(api_class)
-
-            setup = api_class.instance_variable_get(:@setup)
-            klass.instance_variable_set(:@setup, setup.dup) if setup
-            klass.replay_setup_on(klass.base_instance) if setup
-
-            klass.class_exec(api_class, &block) if block_given?
+            klass = duplicate(api_class, &block)
+            #klass.class_exec(api_class, &block) if block_given?
             mount klass
           end
         end
+
+        private
+
+        def duplicate(api_class, &block)
+          klass = Class.new(api_class)
+          setup = api_class.instance_variable_get(:@setup)
+          klass.instance_variable_set(:@setup, setup.dup) if setup
+          klass.class_eval(&block) if block
+          klass.replay_setup_on(klass.base_instance) if setup
+          klass
+        end
+
       end
 
 
