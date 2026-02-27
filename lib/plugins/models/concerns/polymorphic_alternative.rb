@@ -21,9 +21,9 @@ module Plugins
               send("#{att}")[new_assoc] = base_class.to_s
               belongs_to new_assoc.to_sym, foreign_key: rassoc.foreign_key, class_name: base_class.to_s, optional: true
               define_method "#{assoc}_instance" do
-                relation = self.class.send('#{att}').find { |_key, val| val == "#{base_class.to_s}" }&.first
+                relation = self.class.send("#{att}").find { |_key, val| val == "#{base_class.to_s}" }&.first
                 if respond_to?(relation)
-                  send(relation)
+                  send(relation) || send("#{assoc}")
                 else
                   send("#{assoc}")
                 end

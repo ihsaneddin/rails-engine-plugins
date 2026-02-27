@@ -6,7 +6,11 @@ module Plugins
         def self.included base
           base.class_eval do
             class_attribute :resourceful_params_
+            class_attribute :resource_actions_scopes
+            class_attribute :collection_actions_scopes
             self.resourceful_params_ = {}
+            self.resource_actions_scopes = nil
+            self.collection_actions_scopes = nil
           end
           base.extend ClassMethods
           base.extend Events::ResourceActions
@@ -129,7 +133,8 @@ module Plugins
             self.resourceful_params_merge!(args)
             self.instance_exec(&prc) if block_given?
             after_validation do
-              unless route.settings[:skip_resource]
+              skip_resource = route&.settings&.[](:skip_resource) || route&.options&.[](:skip_resource)
+              unless skip_resource
                 if actions_resolve(only, except)
                   _set_resource()
                 end
@@ -144,7 +149,8 @@ module Plugins
             self.resourceful_params_merge!(args)
             self.instance_exec(&prc) if block_given?
             after_validation do
-              unless route.settings[:skip_resources]
+              skip_resources = route&.settings&.[](:skip_resources) || route&.options&.[](:skip_resources)
+              unless skip_resources
                 if actions_resolve(only, except)
                   _set_resources()
                 end
@@ -402,11 +408,34 @@ module Plugins
                 value = instance_exec(&value)
               end
             end
+            value = resourceful_from_route_option(key, value, *args)
             value
           end
 
           def declared_permitted_params
             @declared_permitted_params ||= declared(params, include_missing: false, include_parent_namespaces: false)
+          end
+
+          def resourceful_from_route_option(key, prev, *args)
+            opts = route&.options
+            return prev unless opts.is_a?(Hash)
+
+            opts = opts.with_indifferent_access if opts.respond_to?(:with_indifferent_access)
+            resourceful = opts[:resourceful]
+            return prev unless resourceful.is_a?(Hash)
+
+            resourceful = resourceful.with_indifferent_access if resourceful.respond_to?(:with_indifferent_access)
+            return prev unless resourceful.key?(key)
+
+            value = resourceful[key]
+            return prev if value.nil?
+
+            if value.is_a?(Proc)
+              result = instance_exec(prev, *args, &value)
+              result.nil? ? prev : result
+            else
+              value
+            end
           end
 
           def _set_resource(context=nil)
@@ -645,7 +674,6 @@ module Plugins
               route [:get, :post, :put, :delete],
                     [path, ":#{action_name.to_s}"].join("/"),
                     route_opts do
-
                 not_found = -> { standard_not_found_error(message: "Not found") }
 
                 klass = case klass
@@ -661,7 +689,16 @@ module Plugins
                 cfg   = klass.grape_api_resource_of(context)
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.resource_actions&.[](key)
+
                 not_found.call unless entry
+
+                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:resource_actions_scopes] : nil
+                entry_scopes = Array(entry_scopes).map(&:to_sym) if entry_scopes
+                if entry_scopes.present?
+                  ctx_scopes = class_context&.resource_actions_scopes
+                  ctx_scopes = Array(ctx_scopes).map(&:to_sym) if ctx_scopes
+                  not_found.call if ctx_scopes && (entry_scopes & ctx_scopes).empty?
+                end
 
                 allowed_method =
                   entry.http_method.to_s.downcase.to_sym ==
@@ -718,6 +755,14 @@ module Plugins
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.collection_actions&.[](key)
                 not_found.call unless entry
+
+                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:collection_actions_scopes] : nil
+                entry_scopes = Array(entry_scopes).map(&:to_sym) if entry_scopes
+                if entry_scopes.present?
+                  ctx_scopes = class_context&.collection_actions_scopes
+                  ctx_scopes = Array(ctx_scopes).map(&:to_sym) if ctx_scopes
+                  not_found.call if ctx_scopes && (entry_scopes & ctx_scopes).empty?
+                end
 
                 allowed_method =
                   entry.http_method.to_s.downcase.to_sym ==

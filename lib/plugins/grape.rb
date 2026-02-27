@@ -63,6 +63,10 @@ module Plugins
           end
         end
 
+        def _setup_ &block
+          class_eval(&block) if block_given?
+        end
+
         private
 
         def duplicate(api_class, &block)
@@ -70,7 +74,9 @@ module Plugins
           setup = api_class.instance_variable_get(:@setup)
           klass.instance_variable_set(:@setup, setup.dup) if setup
           klass.class_eval(&block) if block
-          klass.replay_setup_on(klass.base_instance) if setup
+          klass._setup_ do
+            replay_setup_on(base_instance) if setup
+          end
           klass
         end
 

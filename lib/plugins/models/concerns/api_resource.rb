@@ -66,8 +66,8 @@ module Plugins
             after_fetch_resource: nil,
             should_paginate: true,
             presenter: "Plugins::Grape::Presenters::Generic",
-            resource_actions: plugins_collection_config.build(**{ http_method: "get", params: nil }),
-            collection_actions: plugins_collection_config.build(**{ http_method: "get", params: nil }),
+            resource_actions: plugins_collection_config.build(**{ http_method: "get", params: nil, route_options: {} }),
+            collection_actions: plugins_collection_config.build(**{ http_method: "get", params: nil, route_options: {} }),
           }
 
         end

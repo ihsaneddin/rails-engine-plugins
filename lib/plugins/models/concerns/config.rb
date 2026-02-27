@@ -46,7 +46,7 @@ module Plugins
               key   = key_str.chomp("=").to_sym
               entry = values[key] || (allow_new_entries? ? ensure_entry(key) : super)
               entry.set(:value, args.first)
-              return entry.get(:value)
+              return entry
             end
 
             key = name.to_sym
@@ -62,6 +62,7 @@ module Plugins
                   entry.setup(**opts)
                   entry.set(:value,block)
                 end
+                return entry
               else
                 if args.length > 0
                   val = args.first
@@ -77,6 +78,7 @@ module Plugins
               #   entry.instance_exec(*args, &block)
               #   entry.end_setter_mode!
               # end
+              return entry if block || args.length > 0
               entry.get(:value)
             elsif allow_new_entries?
               entry = ensure_entry(key)
@@ -575,13 +577,6 @@ module Plugins
 
         def [](key)
           @_values[key.to_sym]
-        end
-
-        class Collection < Config
-          include Enumerable
-
-
-
         end
 
       end
