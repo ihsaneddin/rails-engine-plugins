@@ -13,6 +13,7 @@ module Plugins
         include Plugins::Controllers::Concerns::Authenticate
         include Plugins::Controllers::Concerns::Authorize
         include Plugins::Controllers::Concerns::Resourceful
+        include Plugins::Controllers::Concerns::ResourcefulAction
         include Plugins::Configuration::Callbacks::Attacher
 
         self.callback_set = Plugins::Configuration::Api::ApiCallbackSet

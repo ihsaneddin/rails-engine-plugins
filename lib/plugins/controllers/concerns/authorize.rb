@@ -6,6 +6,7 @@ module Plugins
         def self.included(base)
           base.include InstanceMethods
           base.extend ClassMethods
+          base.requires_authorization! if base.api_config.requires_authorization
         end
 
         module InstanceMethods
@@ -16,7 +17,7 @@ module Plugins
             end
           end
 
-          def authorize(__resources= :all)
+          def authorize(*args)#= :all)
             #opts = env['api.endpoint'].options[:route_options]
             # opts = route.options
             # return true unless opts.key?(:authorize)
@@ -53,7 +54,11 @@ module Plugins
             #     self.authorized_action= authorization_opts[0]
             #   end
             # end
-            true
+            if api_config.authorize.is_a?(Proc)
+              instance_exec(*args, &self.api_config.authorize)
+            else
+              api_config.authorize
+            end
           end
 
           def authorize!(*args)
@@ -62,11 +67,11 @@ module Plugins
             # else
             #   true
             # end
-            raise "Must be implemented"
+            authorize(*args) || raise(Plugins::Errors::AuthorizationError)
           end
 
           def unauthorized!
-            raise Plugins::Errors::ApiAuthorizationError
+            raise Plugins::Errors::AuthorizationError
           end
 
           def skip_authorization
@@ -80,6 +85,12 @@ module Plugins
         end
 
         module ClassMethods
+          def requires_authorization!
+            prepend_before_action do
+              authorize_route!
+            end
+          end
+
           def skip_authorization!
             prepend_before_action do
               skip_authorization!

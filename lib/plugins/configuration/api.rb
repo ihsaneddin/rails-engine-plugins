@@ -211,13 +211,19 @@ module Plugins
       module Core
 
         def self.included base
+          base.mattr_accessor :requires_authentication
           base.mattr_accessor :authenticate
+          base.mattr_accessor :requires_authorization
+          base.mattr_accessor :authorize
           base.mattr_accessor :base_api_namespace
           base.mattr_accessor :base_controller_class
           base.mattr_accessor :pagination
           base.mattr_accessor :callback_set
 
+          base.requires_authentication = true
           base.authenticate = -> { nil }
+          base.requires_authorization = true
+          base.authorize = -> (*_args) { true }
           base.base_api_namespace = nil
           base.pagination = Plugins::Configuration::Api::Pagination
           base.base_controller_class = "base_controller"

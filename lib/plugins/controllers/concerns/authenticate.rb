@@ -29,7 +29,7 @@ module Plugins
         def self.included(base)
           base.include InstanceMethods
           base.extend ClassMethods
-          base.authenticate!
+          base.authenticate! if base.api_config.requires_authentication
         end
 
         module InstanceMethods
@@ -45,7 +45,7 @@ module Plugins
           end
 
           def reject_unauthenticated!
-            raise Plugins::Errors::ApiAuthenticationError unless @current_user
+            raise Plugins::Errors::AuthenticationError unless @current_user
           end
 
           def skip_authentication

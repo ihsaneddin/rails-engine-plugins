@@ -6,11 +6,11 @@ module Plugins
         def self.included base
           base.class_eval do
             class_attribute :resourceful_params_
-            class_attribute :resource_actions_scopes
-            class_attribute :collection_actions_scopes
+            class_attribute :resource_action_access
+            class_attribute :collection_action_access
             self.resourceful_params_ = {}
-            self.resource_actions_scopes = nil
-            self.collection_actions_scopes = nil
+            self.resource_action_access = nil
+            self.collection_action_access = nil
           end
           base.extend ClassMethods
           base.extend Events::ResourceActions
@@ -377,7 +377,7 @@ module Plugins
             value = class_context do |context|
               context.resourceful_params key.to_sym
             end
-            if value.nil? && ![:model_klass, :resource_context].include?(key)
+            if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions].include?(key)
               mod = model_class_constant
               if mod.respond_to?(:grape_api_resource?) && mod.grape_api_resource?
                 ctx = resource_context
@@ -692,12 +692,12 @@ module Plugins
 
                 not_found.call unless entry
 
-                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:resource_actions_scopes] : nil
+                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:resource_action_access] : nil
                 entry_scopes = Array(entry_scopes).map(&:to_sym) if entry_scopes
                 if entry_scopes.present?
-                  ctx_scopes = class_context&.resource_actions_scopes
+                  ctx_scopes = class_context&.resource_action_access
                   ctx_scopes = Array(ctx_scopes).map(&:to_sym) if ctx_scopes
-                  not_found.call if ctx_scopes && (entry_scopes & ctx_scopes).empty?
+                  not_found.call if ctx_scopes.blank? || (entry_scopes & ctx_scopes).empty?
                 end
 
                 allowed_method =
@@ -756,12 +756,12 @@ module Plugins
                 entry = cfg&.collection_actions&.[](key)
                 not_found.call unless entry
 
-                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:collection_actions_scopes] : nil
+                entry_scopes = entry.route_options.is_a?(Hash) ? entry.route_options[:collection_action_access] : nil
                 entry_scopes = Array(entry_scopes).map(&:to_sym) if entry_scopes
                 if entry_scopes.present?
-                  ctx_scopes = class_context&.collection_actions_scopes
+                  ctx_scopes = class_context&.collection_action_access
                   ctx_scopes = Array(ctx_scopes).map(&:to_sym) if ctx_scopes
-                  not_found.call if ctx_scopes && (entry_scopes & ctx_scopes).empty?
+                  not_found.call if ctx_scopes.blank? || (entry_scopes & ctx_scopes).empty?
                 end
 
                 allowed_method =

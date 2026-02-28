@@ -3,6 +3,8 @@ module Plugins
 
     initializer 'plugins.initialize' do
 
+      ActionDispatch::Routing::Mapper.include Plugins::Routes::Helpers
+
       ActiveSupport.on_load(:active_record) do
         include Plugins::Models
       end

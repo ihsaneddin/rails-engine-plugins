@@ -8,6 +8,7 @@ require 'with_advisory_lock'
 module Plugins
   autoload :Configuration, "plugins/configuration"
   autoload :Controllers, "plugins/controllers"
+  autoload :Routes, "plugins/routes"
   autoload :Models, "plugins/models"
   autoload :Presenters, "plugins/presenters"
   autoload :EngineCallbacks, "plugins/engine_callbacks"
