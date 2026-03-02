@@ -148,7 +148,7 @@ module Plugins
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
         BLOCK_CALLBACKS = ['rescue_from', 'before', 'before_validation', 'after_validation', 'after', 'finally',]
-        CALLBACKS = ['model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate?', 'resource_params_attributes', 'set_presenter', 'resource_actions', 'resources_actions'] + BLOCK_CALLBACKS
+        CALLBACKS = ['model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'should_paginate?', 'resource_params_attributes', 'new_resource', 'set_presenter', 'resource_actions', 'resources_actions'] + BLOCK_CALLBACKS
 
         class_attribute :base
 

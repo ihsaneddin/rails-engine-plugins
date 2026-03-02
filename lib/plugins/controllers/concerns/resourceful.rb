@@ -69,6 +69,7 @@ module Plugins
               resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
               resources_actions: [ :index ],
               resource_params_attributes: nil,
+              new_resource: nil,
               should_paginate: true
             }
           end
@@ -285,6 +286,14 @@ module Plugins
             end
           end
 
+          def new_resource(value = nil, &block)
+            if value.nil? && !block_given?
+              resourceful_params(:new_resource)
+            else
+              set_resource_param(:new_resource, block_given? ? block : value)
+            end
+          end
+
           def should_paginate? pg = nil, &block
             if pg.blank? && !block_given?
               pg = resourceful_params(:should_paginate)
@@ -483,7 +492,10 @@ module Plugins
         end
 
         def _new_resource
-          model_klass_constant.new permitted_attributes
+          attrs = permitted_attributes
+          resource = get_value(:new_resource, attrs)
+          return resource unless resource.nil?
+          model_klass_constant.new(attrs)
         end
 
         def permitted_attributes

@@ -4,7 +4,7 @@ module Plugins
 
       extend ActiveSupport::Concern
 
-      def smart_send(method_name, args = nil)
+      def smart_send(method_name, args = nil, &block)
         args_list = args.nil? ? [] : args
         args_list = [args_list] unless args_list.is_a?(Array)
         args_list = args_list.dup
@@ -55,9 +55,9 @@ module Plugins
         end
 
         if keyword_args.any?
-          send(method_name, *fixed_args, *splat_args, **keyword_args)
+          send(method_name, *fixed_args, *splat_args, **keyword_args, &block)
         else
-          send(method_name, *fixed_args, *splat_args)
+          send(method_name, *fixed_args, *splat_args, &block)
         end
       end
 
@@ -71,13 +71,13 @@ end
 
 #       extend ActiveSupport::Concern
 
-#       def smart_send(method_name, args = nil)
+#       def smart_send(method_name, args = nil, &block)
 #         fixed_args, splat_args, keyword_args = ArgumentBuilder.build(self, method_name, args)
 
 #         if keyword_args.any?
-#           send(method_name, *fixed_args, *splat_args, **keyword_args)
+#           send(method_name, *fixed_args, *splat_args, **keyword_args, &block)
 #         else
-#           send(method_name, *fixed_args, *splat_args)
+#           send(method_name, *fixed_args, *splat_args, &block)
 #         end
 #       end
 
@@ -85,9 +85,9 @@ end
 #         fixed_args, splat_args, keyword_args = ArgumentBuilder.build(self, method_name, args)
 
 #         if keyword_args.any?
-#           send(method_name, *fixed_args, *splat_args, **keyword_args)
+#           send(method_name, *fixed_args, *splat_args, **keyword_args, &block)
 #         else
-#           send(method_name, *fixed_args, *splat_args)
+#           send(method_name, *fixed_args, *splat_args, &block)
 #         end
 #       end
 

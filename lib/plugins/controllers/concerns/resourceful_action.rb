@@ -44,6 +44,7 @@ module Plugins
             :resource_finder,
             :resources_finder,
             :resource_params_attributes,
+            :new_resource,
             :should_paginate,
             :after_fetch_resource
           ].freeze

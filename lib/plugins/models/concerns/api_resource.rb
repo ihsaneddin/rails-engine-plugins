@@ -61,6 +61,7 @@ module Plugins
             resource_identifier: "id",
             resource_finder_key: "id",
             resource_params_attributes: [],
+            new_resource: nil,
             attr_accessor_name: nil,
             query_scope: proc {|query| query },
             query_includes: nil,

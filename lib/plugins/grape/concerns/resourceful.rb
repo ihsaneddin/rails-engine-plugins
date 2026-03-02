@@ -74,6 +74,7 @@ module Plugins
                 resource_identifier: nil,
                 resource_finder_key: nil,
                 resource_params_attributes: nil,
+                new_resource: nil,
                 resource_friendly: false,
                 resource_finder: nil,
                 resource_var_name: nil,
@@ -258,17 +259,25 @@ module Plugins
             resource_finder_key identifier
           end
 
-          def resource_params_attributes(*attributes, &block)
-            if attributes.blank? && !block_given?
-              resourceful_params(:resource_params_attributes)
+        def resource_params_attributes(*attributes, &block)
+          if attributes.blank? && !block_given?
+            resourceful_params(:resource_params_attributes)
+          else
+            if block_given?
+              set_resource_param(:resource_params_attributes, block)
             else
-              if block_given?
-                set_resource_param(:resource_params_attributes, block)
-              else
-                set_resource_param(:resource_params_attributes, attributes)
-              end
+              set_resource_param(:resource_params_attributes, attributes)
             end
           end
+        end
+
+        def new_resource(value = nil, &block)
+          if value.nil? && !block_given?
+            resourceful_params(:new_resource)
+          else
+            set_resource_param(:new_resource, block_given? ? block : value)
+          end
+        end
 
           def resource_friendly?(friendly = nil, &block)
             return
@@ -475,11 +484,13 @@ module Plugins
             identifier
           end
 
-          def _new_resource
-            if(class_context)
-              model_class_constant.new _resource_params
-            end
-          end
+        def _new_resource
+            return unless class_context
+            attrs = _resource_params
+            resource = get_value(:new_resource, attrs)
+            return resource unless resource.nil?
+            model_class_constant.new(attrs)
+        end
 
           def model_class_constant
             klass = _model_klass

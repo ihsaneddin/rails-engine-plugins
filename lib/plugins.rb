@@ -14,6 +14,7 @@ module Plugins
   autoload :EngineCallbacks, "plugins/engine_callbacks"
   autoload :Errors, "plugins/errors"
   autoload :Decorators, 'plugins/decorators'
+  autoload :Queries, 'plugins/queries'
 
   mattr_accessor :configuration
   @@configuration = Configuration

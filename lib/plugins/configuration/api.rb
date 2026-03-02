@@ -147,7 +147,7 @@ module Plugins
 
       class ApiCallbackSet < Plugins::Configuration::Callbacks::CallbackSet
 
-        CALLBACKS = ['prepend_before_action', 'before_action', 'after_action', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'presenter', 'should_paginate', 'resource_params_attributes']
+        CALLBACKS = ['prepend_before_action', 'before_action', 'after_action', 'model_klass', 'resource_identifier', 'resource_finder_key', 'query_scope', 'query_includes', 'after_fetch_resource', 'presenter', 'should_paginate', 'resource_params_attributes', 'new_resource']
 
         class_attribute :base
 
