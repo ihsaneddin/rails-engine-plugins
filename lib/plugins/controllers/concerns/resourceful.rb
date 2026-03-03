@@ -310,11 +310,19 @@ module Plugins
         end
 
         def records
-          @_resources
+          _resources
+        end
+
+        def _resources
+          instance_variable_get("@#{resources_var_name}")
         end
 
         def record
-          @_resource
+          _resource
+        end
+
+        def _resource
+          instance_variable_get("@#{resource_var_name}")
         end
 
         def resource_action
@@ -522,7 +530,11 @@ module Plugins
         end
 
         def resource
-          instance_variable_get("@#{resource_var_name}")
+          record
+        end
+
+        def resources
+          records
         end
 
         def with_resource &block

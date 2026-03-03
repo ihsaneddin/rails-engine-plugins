@@ -3,6 +3,7 @@ module Plugins
     autoload :Concerns, "plugins/models/concerns"
     autoload :Extensions, "plugins/models/extensions"
     autoload :FieldOptions, "plugins/models/field_options"
+    autoload :Queries, "plugins/models/queries"
 
     extend ActiveSupport::Concern
 

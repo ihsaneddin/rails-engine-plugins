@@ -6,21 +6,6 @@ module Plugins
         extend ::Plugins::Decorators::ConfigBuilder
         include ::Plugins.decorators.registered
 
-        included do
-          scope :generic_search, -> (search, advanced_search={}, sort= nil, o=nil){
-            qr ={['generic', o || 'cont'].join('_') => search}
-            if (advanced_search.is_a? Hash)
-              qr.merge!(advanced_search)
-            end
-            res = ransack(qr)
-            if sort.present?
-              sort = [sort].reject(&:blank?) unless sort.is_a?(Array)
-              res.sorts= sort unless sort.empty?
-            end
-            res.result
-          }
-        end
-
         def self.default_options
           {
             query_classes: [],
@@ -156,7 +141,7 @@ module Plugins
             end
 
             def resolve_from_registry(query_type)
-              ::Plugins::Queries::Object.registered_classes.find do |klass|
+              ::Plugins::Models::Queries::Object.registered_classes.find do |klass|
                 klass.query_type.to_s == query_type.to_s || klass.name.to_s == query_type.to_s
               end
             rescue StandardError
@@ -164,7 +149,6 @@ module Plugins
             end
           end
         end
-
 
       end
     end

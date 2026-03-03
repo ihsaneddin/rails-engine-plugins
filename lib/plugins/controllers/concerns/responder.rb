@@ -6,8 +6,8 @@ module Plugins
         extend ActiveSupport::Concern
 
         included do
-          class_attribute :presenter_class
-          class_attribute :presenter_proc
+          include ::Plugins::Decorators.inheritables.class_attributes
+          inheritable_class_attribute :presenter_class
           rescue_from ActiveRecord::RecordNotFound do |e|
             present_error "Record not found", 404
           end

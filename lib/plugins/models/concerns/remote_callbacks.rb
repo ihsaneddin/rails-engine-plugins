@@ -52,6 +52,7 @@ module Plugins
         def self.included(base)
           return if base.instance_variable_defined?(:@_remote_callbacks_loaded)
           base.include ::Plugins::Models::Concerns::Options::InheritableClassAttribute
+          base.include ::Plugins.decorators.smart_send
           base.inheritable_class_attribute :_remote_callbacks, :_remote_callbacks_initialized
           base._remote_callbacks ||= []
           base.extend ClassMethods
