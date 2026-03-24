@@ -553,7 +553,7 @@ module Plugins
             query
           end
 
-          def build_recursive_params(recursive_key:, parameters: posts, permitted_attributes:)
+          def build_recursive_params(recursive_key:, parameters: posts, permitted_attributes:, &block)
             template = { recursive_key => permitted_attributes }
 
             nested_permit_list = template.deep_dup
@@ -562,6 +562,7 @@ module Plugins
             nested_count = parameters.to_s.scan(/#{recursive_key}/).count
             (1..nested_count).each do |i|
               new_element = template.deep_dup
+              yield(new_element[recursive_key], i) if block_given?
               current_node << new_element
               current_node = new_element[recursive_key]
             end
