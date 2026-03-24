@@ -238,7 +238,9 @@ module Plugins
                 base.include(::Omnes::Subscriber[**options])
                 base.include Plugins.decorators.inheritables.singleton_methods
                 base.inheritable_class_attribute :eventable_subscription_buses
+                base.inheritable_class_attribute :eventable_event_object_classes
                 base.eventable_subscription_buses = []
+                base.eventable_event_object_classes = nil
                 base.extend(ClassMethods)
                 base.include(InstanceMethods)
 
@@ -267,6 +269,10 @@ module Plugins
           end
 
           module ClassMethods
+            def event_object_is_a(*klasses)
+              self.eventable_event_object_classes = klasses.flatten.compact.presence
+            end
+
             def on_event(*args, &block)
               opts = args.extract_options!
               events = args
@@ -278,17 +284,17 @@ module Plugins
               case handler
               when Proc
                 events.each do |event_name|
-                  eventable_bus.safe_subscribe(bus.to_sym, event_name, &handler)
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, &eventable_guarded_proc_handler(handler))
                 end
               when String, Symbol
                 events.each do |event_name|
                   eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
-                  handle event_name, with: handler.to_sym
+                  handle event_name, with: eventable_guarded_handler_method_name(handler)
                 end
                 eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
                 events.each do |event_name|
-                  eventable_bus.safe_subscribe(bus.to_sym, event_name, handler)
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, eventable_guarded_callable_handler(handler))
                 end
               end
             end
@@ -299,12 +305,12 @@ module Plugins
 
               case handler
               when Proc
-                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &eventable_guarded_proc_handler(handler))
               when String, Symbol
-                handle_with_matcher matcher, with: handler.to_sym
+                handle_with_matcher matcher, with: eventable_guarded_handler_method_name(handler)
                 eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
-                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, handler)
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, eventable_guarded_callable_handler(handler))
               end
             end
 
@@ -315,12 +321,43 @@ module Plugins
 
               case handler
               when Proc
-                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &handler)
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &eventable_guarded_proc_handler(handler))
               when String, Symbol
-                handle_with_matcher matcher, with: handler.to_sym
+                handle_with_matcher matcher, with: eventable_guarded_handler_method_name(handler)
                 eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
-                eventable_bus.subscribe_to_all(bus.to_sym, matcher, handler)
+                eventable_bus.subscribe_to_all(bus.to_sym, matcher, eventable_guarded_callable_handler(handler))
+              end
+            end
+
+            def eventable_guarded_handler_method_name(handler)
+              handler_method_name = :"_eventable_guarded_#{handler}"
+              original_handler = handler.to_sym
+
+              return handler_method_name if instance_methods(false).include?(handler_method_name)
+
+              define_method(handler_method_name) do |event|
+                return unless eventable_event_object_matches?(event)
+
+                public_send(original_handler, event)
+              end
+
+              handler_method_name
+            end
+
+            def eventable_guarded_proc_handler(handler)
+              proc do |event|
+                next unless eventable_event_object_matches?(event)
+
+                instance_exec(event, &handler)
+              end
+            end
+
+            def eventable_guarded_callable_handler(handler)
+              proc do |event|
+                next unless eventable_event_object_matches?(event)
+
+                handler.call(event)
               end
             end
 
@@ -337,10 +374,29 @@ module Plugins
               super(*args) if defined?(super)
               @id = SecureRandom.hex(6)
             end
+
+            def eventable_event_object_matches?(event)
+              klasses = self.class.eventable_event_object_classes
+              return true if klasses.blank?
+
+              event_object = event.respond_to?(:[]) ? event[:object] : nil
+              klasses.any? do |klass|
+                resolved_klass =
+                  case klass
+                  when String
+                    klass.safe_constantize
+                  when Symbol
+                    klass.to_s.safe_constantize
+                  else
+                    klass
+                  end
+
+                resolved_klass && event_object.is_a?(resolved_klass)
+              end
+            end
           end
         end
       end
     end
   end
 end
-
