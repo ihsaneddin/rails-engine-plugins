@@ -80,18 +80,66 @@ module Plugins
           opts
         end
 
+        def self.prune_default_values(config, defaults)
+          pruned = config.dup
+          _prune_default_values!(pruned, defaults)
+        end
+
+        def self._prune_default_values!(config, defaults)
+          config.keys.each do |key|
+            value = config.values[key]
+            default_value = defaults.values[key]
+
+            if value.is_a?(::Plugins::Models::Concerns::Config) && default_value.is_a?(::Plugins::Models::Concerns::Config)
+              _prune_default_values!(value, default_value)
+              config.remove_key(key) if _equivalent_config?(value, default_value)
+            elsif value == default_value
+              config.remove_key(key)
+            end
+          end
+
+          config
+        end
+
+        def self._equivalent_config?(left, right)
+          return false unless left.class == right.class
+
+          if left.is_a?(::Plugins::Models::Concerns::Config::Collection)
+            left.order == right.order && left.values == right.values
+          else
+            left.values == right.values
+          end
+        end
+
         module ClassMethods
 
           def grape_api_resource *args, &block
 
             ctx = args[0] || "default"
             opts = args.extract_options!
+            from = opts.delete(:from)
 
             opts[:context] = ctx
 
             default_opts = ::Plugins::Models::Concerns::ApiResource.default_options
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, default_opts,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
+
+            if from.present?
+              source_cfg = _grape_api_resource_config_for(from)
+              raise ArgumentError, "Unknown grape_api_resource context: #{from}" unless source_cfg
+
+              current_cfg = send("#{ctx}_grape_api_resource_config")
+              override_cfg = ::Plugins::Models::Concerns::ApiResource.prune_default_values(
+                current_cfg,
+                ::Plugins::Models::Concerns::Config.build(**default_opts)
+              )
+              merged_cfg = source_cfg.dup.deep_merge(override_cfg)
+              merged_cfg.set(:context, ctx)
+              merged_cfg.set(:default, current_cfg.values[:default])
+              merged_cfg.set_context(self)
+              send("_#{ctx}_grape_api_resource_config=", merged_cfg)
+            end
 
             inheritable_class_attribute :default_grape_api_resource_config_context unless respond_to?(:default_grape_api_resource_config_context)
             if send("#{ctx}_grape_api_resource_default")
@@ -128,12 +176,29 @@ module Plugins
 
             ctx = args[0] || "default"
             opts = args.extract_options!
+            from = opts.delete(:from)
 
             opts[:context] = ctx
 
             default_opts = ::Plugins::Models::Concerns::ApiResource.default_api_options
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_api_resource_config", opts, default_opts,
                                                         method_prefix: "#{ctx}_api_resource", &block)
+
+            if from.present?
+              source_cfg = _api_resource_config_for(from)
+              raise ArgumentError, "Unknown api_resource context: #{from}" unless source_cfg
+
+              current_cfg = send("#{ctx}_api_resource_config")
+              override_cfg = ::Plugins::Models::Concerns::ApiResource.prune_default_values(
+                current_cfg,
+                ::Plugins::Models::Concerns::Config.build(**default_opts)
+              )
+              merged_cfg = source_cfg.dup.deep_merge(override_cfg)
+              merged_cfg.set(:context, ctx)
+              merged_cfg.set(:default, current_cfg.values[:default])
+              merged_cfg.set_context(self)
+              send("_#{ctx}_api_resource_config=", merged_cfg)
+            end
 
             inheritable_class_attribute :default_api_resource_config_context unless respond_to?(:default_api_resource_config_context)
             if send("#{ctx}_api_resource_default")

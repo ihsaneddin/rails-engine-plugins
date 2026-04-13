@@ -64,12 +64,12 @@ module Plugins
       def self.safe_subscribe(name, event, handler = nil, &block)
         if block_given?
           with_instance(name) do |bus|
-            bus.register(event) unless bus.registered?(event)
+            bus.register(event) unless registered?(name, event)
             bus.subscribe(event, &block)
           end
         else
           with_instance(name) do |bus|
-            bus.register(event) unless bus.registered?(event)
+            bus.register(event) unless registered?(name, event)
             bus.subscribe(event, handler)
           end
         end

@@ -131,6 +131,43 @@ module Plugins
             copy
           end
 
+          def merge(other)
+            dup.merge!(other)
+          end
+
+          def merge!(other)
+            other = normalize_merge_target(other)
+
+            other.values.each do |key, value|
+              values[key] = duplicable_merge_value(value)
+              order << key unless order.include?(key)
+            end
+
+            self
+          end
+
+          def deep_merge(other)
+            dup.deep_merge!(other)
+          end
+
+          def deep_merge!(other)
+            other = normalize_merge_target(other)
+
+            other.values.each do |key, value|
+              current = values[key]
+
+              if current.is_a?(Config) && value.is_a?(Config)
+                current.deep_merge!(value)
+              else
+                values[key] = duplicable_merge_value(value)
+              end
+
+              order << key unless order.include?(key)
+            end
+
+            self
+          end
+
           private
 
           def ensure_entry(key)
@@ -326,6 +363,40 @@ module Plugins
 
         def add(key, value)
           @_values[key] = value
+          self
+        end
+
+        def merge(other)
+          dup.merge!(other)
+        end
+
+        def merge!(other)
+          other = normalize_merge_target(other)
+
+          other.values.each do |key, value|
+            set(key, duplicable_merge_value(value))
+          end
+
+          self
+        end
+
+        def deep_merge(other)
+          dup.deep_merge!(other)
+        end
+
+        def deep_merge!(other)
+          other = normalize_merge_target(other)
+
+          other.values.each do |key, value|
+            current = values[key]
+
+            if current.is_a?(Config) && value.is_a?(Config)
+              current.deep_merge!(value)
+            else
+              set(key, duplicable_merge_value(value))
+            end
+          end
+
           self
         end
 
@@ -577,6 +648,35 @@ module Plugins
 
         def [](key)
           @_values[key.to_sym]
+        end
+
+        private
+
+        def normalize_merge_target(other)
+          return other if other.is_a?(Config)
+          raise ArgumentError, "Expected #{self.class.name} or Hash" unless other.is_a?(Hash)
+
+          is_a?(Collection) ? self.class.new(values: other) : self.class.build(**other)
+        end
+
+        def duplicable_merge_value(value)
+          duplicated = case value
+                       when Config
+                         value.dup
+                       when Array
+                         value.map { |v| duplicable_merge_value(v) }
+                       when Hash
+                         value.transform_values { |v| duplicable_merge_value(v) }
+                       else
+                         begin
+                           value.frozen? || value.is_a?(Numeric) || value.is_a?(Symbol) ? value : value.dup
+                         rescue
+                           value
+                         end
+                       end
+
+          duplicated.set_context(@_context) if duplicated.is_a?(Config)
+          duplicated
         end
 
       end

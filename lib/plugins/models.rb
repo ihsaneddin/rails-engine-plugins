@@ -4,6 +4,7 @@ module Plugins
     autoload :Extensions, "plugins/models/extensions"
     autoload :FieldOptions, "plugins/models/field_options"
     autoload :Queries, "plugins/models/queries"
+    #autoload :Services, "plugins/models/services"
 
     extend ActiveSupport::Concern
 
