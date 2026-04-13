@@ -4,12 +4,20 @@ module Plugins
 
     extend ActiveSupport::Concern
 
-    def self.use_plugins_controllers
-      include Plugins::Controllers::Concerns::Authenticate
-      include Plugins::Controllers::Concerns::Resourceful
-      include Plugins::Configuration::Callbacks::Attacher
+    class_methods do
+      def use_plugins_controllers(config = Plugins::Configuration::Api)
 
-      self.callback_set = Plugins::Configuration::Api::ApiCallbackSet
+        class_attribute :api_config
+        self.api_config= config
+
+        include Plugins::Controllers::Concerns::Authenticate
+        include Plugins::Controllers::Concerns::Authorize
+        include Plugins::Controllers::Concerns::Resourceful
+        include Plugins::Controllers::Concerns::ResourcefulAction
+        include Plugins::Configuration::Callbacks::Attacher
+
+        self.callback_set = Plugins::Configuration::Api::ApiCallbackSet
+      end
     end
 
   end

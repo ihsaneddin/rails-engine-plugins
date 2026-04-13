@@ -1,6 +1,37 @@
 require "plugins/version"
-require "plugins/railtie"
+require "plugins/engine"
+require 'store_model'
+require 'ransack'
+require 'omnes'
+require 'with_advisory_lock'
 
 module Plugins
-  # Your code goes here...
+  autoload :Configuration, "plugins/configuration"
+  autoload :Controllers, "plugins/controllers"
+  autoload :Routes, "plugins/routes"
+  autoload :Models, "plugins/models"
+  autoload :Presenters, "plugins/presenters"
+  autoload :EngineCallbacks, "plugins/engine_callbacks"
+  autoload :Errors, "plugins/errors"
+  autoload :Decorators, 'plugins/decorators'
+  autoload :Queries, 'plugins/queries'
+
+  mattr_accessor :configuration
+  @@configuration = Configuration
+
+  def self.config
+    @@configuration
+  end
+
+  def self.setup &block
+    config.setup &block
+  end
+
+  def self.decorators
+    Decorators
+  end
+
 end
+
+require "plugins/railtie"
+require 'plugins/hooks'

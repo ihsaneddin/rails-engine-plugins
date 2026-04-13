@@ -1,13 +1,23 @@
 module Plugins
   module Models
     autoload :Concerns, "plugins/models/concerns"
+    autoload :Extensions, "plugins/models/extensions"
     autoload :FieldOptions, "plugins/models/field_options"
+    autoload :Queries, "plugins/models/queries"
+    #autoload :Services, "plugins/models/services"
 
     extend ActiveSupport::Concern
 
-    def self.use_plugins_models
-      include Plugins::Models::Concerns::Eventable
-      include Plugins::Models::Concerns::ActsAsDefaultValue
+    class_methods do
+      def use_plugins_models(config= Plugins.config.events)
+        class_attribute :events_config
+        self.events_config= config
+        include Plugins::Models::Concerns::ActsAsDefaultValue
+        include Plugins::Models::Concerns::Preferences
+        include Plugins::Models::Concerns::CustomAttributes
+        include Plugins::Models::Concerns::PolymorphicAlternative
+        include Plugins::Models::Concerns::RemoteCallbacks
+      end
     end
 
   end

@@ -6,12 +6,17 @@ module Plugins
         extend ActiveSupport::Concern
 
         included do
-          class_attribute :presenter_class
-          class_attribute :presenter_proc
+          include ::Plugins::Decorators.inheritables.class_attributes
+          inheritable_class_attribute :presenter_class
           rescue_from ActiveRecord::RecordNotFound do |e|
             present_error "Record not found", 404
           end
+          class_attribute :engine_namespace
+          self.engine_namespace = self.name.split("::")[0]
+        end
 
+        def engine_namespace
+          self.class.name.split("::")[0]
         end
 
         def present_error message = "Error", status = 500
@@ -28,8 +33,11 @@ module Plugins
         end
 
         def presenter_class_constant
+          unless defined? Alba::Resource
+            raise "Please install alba gem"
+          end
           @presenter_class_constant ||= presenter_klass.safe_constantize
-          raise ArgumentError, "#{presenter_klass} should be sub-class of #{Plugins::Presenters::Base}." unless @presenter_class_constant && @presenter_class_constant.ancestors.include?(Plugins::Presenters::Base)
+          raise ArgumentError, "#{presenter_klass} should implement of #{Alba::Resource}." unless @presenter_class_constant && @presenter_class_constant.include?(Alba::Resource)
           @presenter_class_constant
         end
 
@@ -38,11 +46,11 @@ module Plugins
         end
 
         def default_presenter_class
-          default = self.class.name.gsub("Plugins::Api::", "")
+          default = self.class.name.gsub("#{engine_namespace}::", "")
           default = default.split("::")
           default.pop
           default << controller_name.classify
-          default.unshift("Plugins", "Presenters")
+          default.unshift(engine_namespace, "Controllers", "Presenters")
           default.join("::")
         end
 

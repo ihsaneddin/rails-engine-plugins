@@ -1,12 +1,14 @@
 module Plugins
   module Configuration
-    module Events
+    class Events
 
       class Delegator
         attr_reader :backend
+        attr_reader :namespace
 
-        def initialize
+        def initialize(namespace= nil)
           @backend = ActiveSupport::Notifications
+          @namespace = namespace
         end
 
         def configure(&block)
@@ -16,8 +18,8 @@ module Plugins
 
         def subscribe(name, callable = nil, &block)
           callable ||= block
-          # backend.subscribe name_with_namespace(name), NotificationAdapter.new(callable)
-          backend.subscribe to_regexp(name), NotificationAdapter.new(callable)
+          backend.subscribe name_with_namespace(name), NotificationAdapter.new(callable)
+          #backend.subscribe to_regexp(name), NotificationAdapter.new(callable)
         end
 
         def all(callable = nil, &block)
@@ -51,19 +53,21 @@ module Plugins
         end
 
         def name_with_namespace(name, delimiter: ".")
-          raise "engine namespace is not provided" unless Plugins::Configuration.engine_namespace
-          [Plugins::Configuration::engine_namespace, name].compact.join(delimiter)
+          [@namespace, name].compact.join(delimiter)
         end
       end
 
-      class << self
-        delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
-        def delegator
-          @delegator ||= Delegator.new
-        end
+      delegate :configure, :instrument, :namespace, :namespace=, to: :delegator
 
+      def initialize(namespace = nil)
+        @namespace = namespace
       end
+
+      def delegator
+        @delegator ||= Delegator.new(@namespace)
+      end
+
     end
   end
 end
