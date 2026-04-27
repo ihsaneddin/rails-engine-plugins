@@ -74,6 +74,17 @@ module Plugins
           setup = api_class.instance_variable_get(:@setup)
           klass.instance_variable_set(:@setup, setup.dup) if setup
           klass.class_eval(&block) if block
+          klass.helpers do
+            def api_config
+              #self.class_context.api_config
+              class_context.api_config
+            end
+
+            def class_context &block
+              block_given?? yield(env['api.endpoint'].options[:for].base) : env['api.endpoint'].options[:for].base
+            end
+
+          end
           klass._setup_ do
             replay_setup_on(base_instance) if setup
           end

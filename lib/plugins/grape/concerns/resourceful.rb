@@ -521,6 +521,7 @@ module Plugins
           end
 
           def _resource_params
+            normalize_file_params!(params)
             attributes = {}
             if(class_context)
               attributes  = declared_permitted_params
@@ -534,9 +535,6 @@ module Plugins
                   end
                 end
               end
-            end
-            if route.settings[:upload_attributes]
-              attributes = normalize_file_params!(attributes)
             end
             attributes
           end
