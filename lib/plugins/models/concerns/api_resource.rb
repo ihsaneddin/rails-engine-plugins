@@ -80,6 +80,27 @@ module Plugins
           opts
         end
 
+        def self.deep_dup_option_value(value)
+          case value
+          when ::Plugins::Models::Concerns::Config
+            value.dup
+          when Array
+            value.map { |entry| deep_dup_option_value(entry) }
+          when Hash
+            value.transform_values { |entry| deep_dup_option_value(entry) }
+          else
+            begin
+              value.frozen? || value.is_a?(Numeric) || value.is_a?(Symbol) ? value : value.dup
+            rescue
+              value
+            end
+          end
+        end
+
+        def self.deep_dup_options(options)
+          options.transform_values { |value| deep_dup_option_value(value) }
+        end
+
         def self.prune_default_values(config, defaults)
           pruned = config.dup
           _prune_default_values!(pruned, defaults)
@@ -121,8 +142,10 @@ module Plugins
 
             opts[:context] = ctx
 
-            default_opts = ::Plugins::Models::Concerns::ApiResource.default_options
-            ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, default_opts,
+            setup_defaults = ::Plugins::Models::Concerns::ApiResource.deep_dup_options(
+              ::Plugins::Models::Concerns::ApiResource.default_options
+            )
+            ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
 
             if from.present?
@@ -132,7 +155,11 @@ module Plugins
               current_cfg = send("#{ctx}_grape_api_resource_config")
               override_cfg = ::Plugins::Models::Concerns::ApiResource.prune_default_values(
                 current_cfg,
-                ::Plugins::Models::Concerns::Config.build(**default_opts)
+                ::Plugins::Models::Concerns::Config.build(
+                  **::Plugins::Models::Concerns::ApiResource.deep_dup_options(
+                    ::Plugins::Models::Concerns::ApiResource.default_options
+                  )
+                )
               )
               merged_cfg = source_cfg.dup.deep_merge(override_cfg)
               merged_cfg.set(:context, ctx)
@@ -180,8 +207,10 @@ module Plugins
 
             opts[:context] = ctx
 
-            default_opts = ::Plugins::Models::Concerns::ApiResource.default_api_options
-            ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_api_resource_config", opts, default_opts,
+            setup_defaults = ::Plugins::Models::Concerns::ApiResource.deep_dup_options(
+              ::Plugins::Models::Concerns::ApiResource.default_api_options
+            )
+            ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_api_resource", &block)
 
             if from.present?
@@ -191,7 +220,11 @@ module Plugins
               current_cfg = send("#{ctx}_api_resource_config")
               override_cfg = ::Plugins::Models::Concerns::ApiResource.prune_default_values(
                 current_cfg,
-                ::Plugins::Models::Concerns::Config.build(**default_opts)
+                ::Plugins::Models::Concerns::Config.build(
+                  **::Plugins::Models::Concerns::ApiResource.deep_dup_options(
+                    ::Plugins::Models::Concerns::ApiResource.default_api_options
+                  )
+                )
               )
               merged_cfg = source_cfg.dup.deep_merge(override_cfg)
               merged_cfg.set(:context, ctx)
