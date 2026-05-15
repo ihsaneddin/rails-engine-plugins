@@ -75,9 +75,7 @@ module Plugins
         end
 
         def self.default_api_options
-          opts = default_options.dup
-          opts.delete(:presenter)
-          opts
+          default_options.dup
         end
 
         def self.deep_dup_option_value(value)

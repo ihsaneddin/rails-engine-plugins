@@ -14,6 +14,7 @@ module Plugins
       autoload :ThreadSafe, "plugins/models/concerns/thread_safe"
       autoload :TracksTransactionRoot, "plugins/models/concerns/tracks_transaction_root"
       autoload :AssociationHelpers, "plugins/models/concerns/association_helpers"
+      autoload :Searchable, "plugins/models/concerns/searchable"
     end
   end
 end
