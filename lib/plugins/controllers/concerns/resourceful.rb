@@ -126,11 +126,11 @@ module Plugins
             end
           end
 
-          def resource_var_name(name = nil)
-            if name.nil?
+          def resource_var_name(name = nil, &block)
+            if name.nil? && !block_given?
               resourceful_params(:resource_var_name)
             else
-              set_resource_param(:resource_var_name, name)
+              set_resource_param(:resource_var_name, block_given? ? block : name)
             end
           end
 
@@ -142,8 +142,8 @@ module Plugins
             end
           end
 
-          def model_klass(klass = nil)
-            if klass.nil?
+          def model_klass(klass = nil, &block)
+            if klass.nil? && !block_given?
               klass = self.resourceful_params[:model_klass]
               if klass.blank?
                 klass= self.to_s.demodulize.singularize.camelcase
@@ -151,8 +151,9 @@ module Plugins
               end
               klass
             else
-              set_resource_param :model_klass, klass
-              klass
+              value = block_given? ? block : klass
+              set_resource_param :model_klass, value
+              value
             end
           end
 
@@ -336,16 +337,30 @@ module Plugins
         end
 
         def fetch_resource
-          return @_resource unless @_resource.nil?
-          @_resource = _get_resource
-          instance_variable_set("@#{resource_var_name}", @_resource)
-        end
+  return @_resource unless @_resource.nil?
+  @_resource = _get_resource
+  instance_variable_set("@#{resource_var_name}", @_resource)
+end
 
-        def fetch_resources
-          return @_resources unless @_resources.nil?
-          @_resources = _get_resources
-          instance_variable_set("@#{resources_var_name}", @_resources)
-        end
+def fetch_resources
+  return @_resources unless @_resources.nil?
+  @_resources = _get_resources
+  should_paginate = get_value(:should_paginate)
+  if should_paginate && @_resources.is_a?(ActiveRecord::Relation) && !paginated_collection?(@_resources)
+    @_resources = paginate(@_resources)
+  end
+  instance_variable_set("@#{resources_var_name}", @_resources)
+end
+
+def replace_resource(resource)
+  @_resource = resource
+  instance_variable_set("@#{resource_var_name}", @_resource)
+end
+
+def replace_resources(resources)
+  @_resources = resources
+  instance_variable_set("@#{resources_var_name}", @_resources)
+end
 
         def _get_resource
           got_resource = _identifier_param_present? ? _existing_resource : _new_resource
@@ -355,6 +370,19 @@ module Plugins
 
         def _get_resources
           _query
+        end
+
+        def model_class_constant
+          return @_model_klass if defined?(@_model_klass) && @_model_klass
+
+          klass = _model_klass
+          @_model_klass = if self.class.class_exists?(klass)
+            klass.constantize
+          else
+            klass.constantize
+          end
+        rescue
+          raise ActiveRecord::RecordNotFound
         end
 
         def dispatch_resource_action(action_name, action_key)
@@ -544,11 +572,15 @@ module Plugins
         end
 
         def resource_var_name
-          self.class.resourceful_params(:resource_var_name).presence || model_klass_constant.model_name.param_key
+          get_value(:resource_var_name).presence || model_klass_constant.model_name.param_key
         end
 
         def resources_var_name
           resource_var_name.to_s.pluralize
+        end
+
+        def resource_context
+          get_value(:resource_context)
         end
 
         def pagination_info
@@ -570,36 +602,45 @@ module Plugins
           end
         end
 
+        def paginated_collection?(collection)
+          collection.respond_to?(:current_page) &&
+            collection.respond_to?(:total_pages) &&
+            (collection.respond_to?(:total_count) || collection.respond_to?(:total_entries))
+        end
+
         def get_value key, *args
           value = self.class.resourceful_params key.to_sym
-          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions].include?(key.to_sym)
-            cfg = api_resource_config
-            if cfg
-              if cfg.use_api_evaluation
-                value = cfg.with_context(self) do
-                  cfg.get(key, *args) if cfg.exists?(key)
+          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions].include?(key)
+            mod = model_class_constant
+            if mod.respond_to?(:api_resource?) && mod.api_resource?
+              ctx = resource_context
+              if cfg = mod.api_resource_of(ctx)
+                if cfg.use_api_evaluation
+                  value = cfg.with_context(self) do
+                    cfg.get(key, *args) if cfg.exists?(key)
+                  end
+                else
+                  args << self
+                  value = cfg.get(key, *args) if cfg.exists?(key)
                 end
-              else
-                value = cfg.get(key, *args, self) if cfg.exists?(key)
               end
             end
           end
           if value.is_a?(Blocks)
-            value = value.call(self, *args)
+            if args.length > 0
+              value = value.call(self, *args)
+            else
+              value = value.call(self)
+            end
           end
           if value.is_a?(Proc)
-            value = instance_exec(*args, &value)
+            if args
+              value = instance_exec(*args, &value)
+            else
+              value = instance_exec(&value)
+            end
           end
           value
-        end
-
-        def api_resource_config
-          return @_api_resource_config if defined?(@_api_resource_config)
-          @_api_resource_config =
-            if model_klass_constant.try(:api_resource?)
-              ctx = self.class.resourceful_params(:resource_context) || "default"
-              model_klass_constant.api_resource_of(ctx)
-            end
         end
 
         def present data, *args
@@ -607,7 +648,7 @@ module Plugins
           if data.is_a?(ActiveRecord::Relation)
             should_paginate = get_value :should_paginate
             if should_paginate
-              data = paginate(data)
+              data = paginate(data) unless paginated_collection?(data)
               pagination = pagination_info
               args << {pagination: pagination}
             end

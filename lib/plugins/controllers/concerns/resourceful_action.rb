@@ -37,6 +37,7 @@ module Plugins
             :resource_context,
             :resource_var_name,
             :attr_accessor_name,
+            :presenter,
             :query_scope,
             :query_includes,
             :resource_identifier,
