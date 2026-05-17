@@ -337,30 +337,32 @@ module Plugins
         end
 
         def fetch_resource
-  return @_resource unless @_resource.nil?
-  @_resource = _get_resource
-  instance_variable_set("@#{resource_var_name}", @_resource)
-end
+          return @_resource unless @_resource.nil?
 
-def fetch_resources
-  return @_resources unless @_resources.nil?
-  @_resources = _get_resources
-  should_paginate = get_value(:should_paginate)
-  if should_paginate && @_resources.is_a?(ActiveRecord::Relation) && !paginated_collection?(@_resources)
-    @_resources = paginate(@_resources)
-  end
-  instance_variable_set("@#{resources_var_name}", @_resources)
-end
+          @_resource = _get_resource
+          instance_variable_set("@#{resource_var_name}", @_resource)
+        end
 
-def replace_resource(resource)
-  @_resource = resource
-  instance_variable_set("@#{resource_var_name}", @_resource)
-end
+        def fetch_resources
+          return @_resources unless @_resources.nil?
 
-def replace_resources(resources)
-  @_resources = resources
-  instance_variable_set("@#{resources_var_name}", @_resources)
-end
+          @_resources = _get_resources
+          should_paginate = get_value(:should_paginate)
+          if should_paginate && @_resources.is_a?(ActiveRecord::Relation) && !paginated_collection?(@_resources)
+            @_resources = paginate(@_resources)
+          end
+          instance_variable_set("@#{resources_var_name}", @_resources)
+        end
+
+        def replace_resource(resource)
+          @_resource = resource
+          instance_variable_set("@#{resource_var_name}", @_resource)
+        end
+
+        def replace_resources(resources)
+          @_resources = resources
+          instance_variable_set("@#{resources_var_name}", @_resources)
+        end
 
         def _get_resource
           got_resource = _identifier_param_present? ? _existing_resource : _new_resource
@@ -644,13 +646,12 @@ end
         end
 
         def present data, *args
-          meta = {}
           if data.is_a?(ActiveRecord::Relation)
             should_paginate = get_value :should_paginate
             if should_paginate
-              data = paginate(data) unless paginated_collection?(data)
               pagination = pagination_info
-              args << {pagination: pagination}
+              options = args.last.is_a?(Hash) ? args.pop.dup : {}
+              args << options.merge(pagination: pagination)
             end
           end
           super(data, *args)
