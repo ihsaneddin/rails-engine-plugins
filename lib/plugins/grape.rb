@@ -21,12 +21,22 @@ module Plugins
       def self.included(base)
         base.helpers do
           def api_config
-            #self.class_context.api_config
-            class_context.api_config
+            context = class_context
+            context.respond_to?(:api_config) ? context.api_config : Plugins.config.grape_api
           end
 
           def class_context &block
-            block_given?? yield(env['api.endpoint'].options[:for].base) : env['api.endpoint'].options[:for].base
+            endpoint_for = env["api.endpoint"]&.options&.[](:for)
+            context = if endpoint_for.respond_to?(:base)
+              endpoint_for.base
+            elsif endpoint_for.is_a?(Class) && endpoint_for.instance_variable_defined?(:@base)
+              endpoint_for.instance_variable_get(:@base)
+            else
+              endpoint_for
+            end
+            context = context.ancestors.find { |ancestor| ancestor.respond_to?(:api_config) } || context if context.is_a?(Class) && !context.respond_to?(:api_config)
+
+            block_given? ? yield(context) : context
           end
 
         end
@@ -76,12 +86,22 @@ module Plugins
           klass.class_eval(&block) if block
           klass.helpers do
             def api_config
-              #self.class_context.api_config
-              class_context.api_config
+              context = class_context
+              context.respond_to?(:api_config) ? context.api_config : Plugins.config.grape_api
             end
 
             def class_context &block
-              block_given?? yield(env['api.endpoint'].options[:for].base) : env['api.endpoint'].options[:for].base
+              endpoint_for = env["api.endpoint"]&.options&.[](:for)
+              context = if endpoint_for.respond_to?(:base)
+                endpoint_for.base
+              elsif endpoint_for.is_a?(Class) && endpoint_for.instance_variable_defined?(:@base)
+                endpoint_for.instance_variable_get(:@base)
+              else
+                endpoint_for
+              end
+              context = context.ancestors.find { |ancestor| ancestor.respond_to?(:api_config) } || context if context.is_a?(Class) && !context.respond_to?(:api_config)
+
+              block_given? ? yield(context) : context
             end
 
           end

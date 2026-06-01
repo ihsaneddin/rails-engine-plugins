@@ -1,3 +1,4 @@
+require "ostruct"
 module Plugins
   module Models
     module Concerns
@@ -448,50 +449,65 @@ module Plugins
           keys.each{|k| valid_key?(k) }
         end
 
-        def start_setter_mode!
-          @_setter_mode = true
-          values.each do |key, value|
-            if value.is_a?(Config)
-              value.start_setter_mode!
-            end
-          end
-        end
+def start_setter_mode!(seen = {})
+  return if seen[object_id]
+  seen[object_id] = true
 
-        def end_setter_mode!
-          @_setter_mode  = false
-          values.each do |key, value|
-            if value.is_a?(Config)
-              value.end_setter_mode!
-            end
-          end
-        end
+  @_setter_mode = true
+  values.each do |key, value|
+    if value.is_a?(Config)
+      value.start_setter_mode!(seen)
+    end
+  end
+end
 
-        def supress!
-          @supress = true
-          values.each do |key, value|
-            if value.is_a?(Config)
-              value.supress!
-            end
-          end
-        end
+def end_setter_mode!(seen = {})
+  return if seen[object_id]
+  seen[object_id] = true
 
-        def unsupress!
-          @supress = false
-          values.each do |key, value|
-            if value.is_a?(Config)
-              value.unsupress!
-            end
-          end
-        end
+  @_setter_mode  = false
+  values.each do |key, value|
+    if value.is_a?(Config)
+      value.end_setter_mode!(seen)
+    end
+  end
+end
 
-        def dynamic_keys!
-          @_dynamic_keys = true
-          values.each do |key, value|
-            if value.is_a?(Config)
-              value.dynamic_keys!
-            end
-          end
-        end
+def supress!(seen = {})
+  return if seen[object_id]
+  seen[object_id] = true
+
+  @supress = true
+  values.each do |key, value|
+    if value.is_a?(Config)
+      value.supress!(seen)
+    end
+  end
+end
+
+def unsupress!(seen = {})
+  return if seen[object_id]
+  seen[object_id] = true
+
+  @supress = false
+  values.each do |key, value|
+    if value.is_a?(Config)
+      value.unsupress!(seen)
+    end
+  end
+end
+
+def dynamic_keys!(seen = {})
+  return if seen[object_id]
+  seen[object_id] = true
+
+  @_dynamic_keys = true
+  values.each do |key, value|
+    if value.is_a?(Config)
+      value.dynamic_keys!(seen)
+    end
+  end
+end
 
         def with_dynamic_keys &block
           if block_given?

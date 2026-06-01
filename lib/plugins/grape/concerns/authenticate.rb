@@ -17,7 +17,9 @@ module Plugins
         module ClassMethods
           def requires_authentication!
             before do
-              unless self.class_context._skip_authentication || skip_authentication?
+              skip_class_authentication = class_context.respond_to?(:_skip_authentication) && class_context._skip_authentication
+
+              unless skip_class_authentication || skip_authentication?
                 authenticate!
               end
             end

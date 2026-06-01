@@ -115,10 +115,10 @@ module Plugins
           end
           if transaction
             self.class.transaction do
-              self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, &block)
+              self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, transaction: true, &block)
             end
           else
-            self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, transaction: transaction, &block)
+            self.class.with_advisory_lock(scoped_key, timeout_seconds: timeout, transaction: false, &block)
           end
         end
 

@@ -1,3 +1,6 @@
+require "active_support/core_ext/module/attribute_accessors"
+require "active_support/core_ext/object/blank"
+require "rails"
 require "plugins/version"
 require "plugins/engine"
 require 'store_model'

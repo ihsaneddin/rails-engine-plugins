@@ -22,12 +22,11 @@ Gem::Specification.new do |spec|
     Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md"]
   end
 
-  spec.add_dependency "rails", ">= 7.0.1"
+  spec.add_dependency "rails", ">= 7.2", "< 9.0"
   spec.add_dependency 'alba'
   spec.add_dependency 'options_model'
-  spec.add_dependency "activeentity", ">= 6.1.0"
   spec.add_dependency "omnes"
   spec.add_dependency "store_model"
-  spec.add_dependency "ransack", '~> 3.1.0'
+  spec.add_dependency "ransack", ">= 3.1.0"
   spec.add_dependency "with_advisory_lock"
 end

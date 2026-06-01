@@ -24,7 +24,11 @@ FactoryBot.definition_file_paths = [Plugins::Engine.root.join("spec/factories").
 FactoryBot.find_definitions
 
 RSpec.configure do |config|
-  config.fixture_path = File.expand_path("fixtures", __dir__)
+  if config.respond_to?(:fixture_paths=)
+    config.fixture_paths = [File.expand_path("fixtures", __dir__)]
+  else
+    config.fixture_path = File.expand_path("fixtures", __dir__)
+  end
   config.include FactoryBot::Syntax::Methods
   config.use_transactional_fixtures = false
 

@@ -77,16 +77,26 @@ module Plugins
             # cache_key will be nil for new objects, then if we check if there
             # is a pending preference before going to default
             define_method preference_getter_method(name) do
-              value = preferences.fetch(name) do
+              value = if preferences.key?(name)
+                preferences[name]
+              elsif preferences.key?(name.to_s)
+                preferences[name.to_s]
+              else
                 instance_exec(*context_for_default, &default)
               end
-              value = preference_encryptor.decrypt(value) if preference_encryptor.present?
+              value = if preference_encryptor.present?
+                preference_encryptor.decrypt(value)
+              else
+                convert_preference_value(value, type)
+              end
               value
             end
 
             define_method preference_setter_method(name) do |value|
               value = convert_preference_value(value, type, preference_encryptor)
-              preferences[name] = value
+              preferences.delete(name)
+              preferences.delete(name.to_s)
+              preferences[name.to_s] = value
 
               # If this is an activerecord object, we need to inform
               # ActiveRecord::Dirty that this value has changed, since this is an
@@ -342,10 +352,12 @@ module Plugins
           included do
             include Plugins::Models::Concerns::Preferences::Preferable
 
-            if method(:serialize).parameters.include?([:key, :type]) # Rails 7.1+
-              serialize :preferences, type: Hash, coder: YAML
-            else
-              serialize :preferences, Hash, coder: YAML
+            unless type_for_attribute("preferences").type.in?([:json, :jsonb])
+              if method(:serialize).parameters.include?([:key, :type]) # Rails 7.1+
+                serialize :preferences, type: Hash, coder: YAML
+              else
+                serialize :preferences, Hash, coder: YAML
+              end
             end
 
             after_initialize :initialize_preference_defaults
@@ -355,7 +367,12 @@ module Plugins
 
           def initialize_preference_defaults
             if has_attribute?(:preferences)
-              self.preferences = default_preferences.merge(preferences)
+              current_preferences = preferences
+              current_preferences = YAML.safe_load(current_preferences, permitted_classes: [Symbol], aliases: true) if current_preferences.is_a?(String) && current_preferences.present?
+              current_preferences = {} unless current_preferences.is_a?(Hash)
+              current_preferences = current_preferences.symbolize_keys
+
+              self.preferences = default_preferences.merge(current_preferences)
             end
           end
 

@@ -1,10 +1,18 @@
-
-require 'active_entity'
+require 'store_model'
 require 'active_support/hash_with_indifferent_access'
+require 'active_support/core_ext/object/blank'
+require 'active_support/core_ext/object/duplicable'
+require 'active_support/core_ext/hash/keys'
+require 'active_support/core_ext/hash/reverse_merge'
+require 'active_support/core_ext/module/attribute_accessors'
+require 'active_support/concern'
+require 'set'
+require 'yaml'
 
 module Plugins
   module Models
-    class FieldOptions < ActiveEntity::Base
+    class FieldOptions
+      include StoreModel::Model
 
       module ActsAsDefaultValue
         extend ActiveSupport::Concern
@@ -37,13 +45,10 @@ module Plugins
           end
         end
 
-        included do
-          after_initialize :set_default_values
-        end
-
         def initialize(attributes = nil)
           @initialization_attributes = attributes.is_a?(Hash) ? attributes.stringify_keys : {}
           super
+          set_default_values
         end
 
         def set_default_values
@@ -69,7 +74,7 @@ module Plugins
 
             send("#{attribute}=", container.evaluate(self))
 
-            clear_attribute_changes [attribute] if has_attribute?(attribute)
+            clear_attribute_changes [attribute] if respond_to?(:clear_attribute_changes) && has_attribute?(attribute)
           end
         end
 
@@ -159,8 +164,26 @@ module Plugins
       def interpret_to(_model, _field_name, _accessibility, _options = {}); end
 
       def serializable_hash(options = {})
-        options = (options || {}).reverse_merge include: self.class._embeds_reflections.keys
-        super options
+        options = (options || {}).reverse_merge(include: self.class._embeds_reflections.keys)
+        hash = as_json(options.except(:include))
+        Array(options[:include]).each do |attribute|
+          next unless respond_to?(attribute)
+
+          value = public_send(attribute)
+          hash[attribute.to_s] =
+            if value.respond_to?(:serializable_hash)
+              value.serializable_hash
+            elsif value.respond_to?(:as_json)
+              value.as_json
+            else
+              value
+            end
+        end
+        hash
+      end
+
+      def new_record?
+        true
       end
 
       private
@@ -174,8 +197,34 @@ module Plugins
         end
 
         class << self
+          def attribute(name, cast_type = nil, type: nil, **options)
+            super(name, cast_type || type, **options)
+          end
+
+          def embeds_one(name, anonymous_class: nil, class_name: nil, **_options)
+            klass = anonymous_class || class_name.to_s.safe_constantize
+            raise ArgumentError, "embedded class is required for #{name}" unless klass
+
+            _embeds_reflections[name.to_s] = klass
+            attribute name, klass.to_type, default: -> { klass.new }
+            accepts_nested_attributes_for name
+          end
+
+          def embeds_many(name, anonymous_class: nil, class_name: nil, **_options)
+            klass = anonymous_class || class_name.to_s.safe_constantize
+            raise ArgumentError, "embedded class is required for #{name}" unless klass
+
+            _embeds_reflections[name.to_s] = klass
+            attribute name, klass.to_array_type, default: -> { [] }
+            accepts_nested_attributes_for name
+          end
+
+          def nested_attributes_options
+            _embeds_reflections.transform_values { {} }
+          end
+
           def _embeds_reflections
-            _reflections.select { |_, v| v.is_a? ActiveEntity::Reflection::EmbeddedAssociationReflection }
+            @embeds_reflections ||= {}
           end
 
           def model_version
