@@ -51,7 +51,7 @@ module Plugins
 
           def deep_copy(value, opts={})
             case value
-            when NilClass, Symbol, Numeric, TrueClass, FalseClass
+            when NilClass, Symbol, Numeric, TrueClass, FalseClass, Class, Module
               value
             when Hash
               copied = value.each_with_object({}) do |(k, v), acc|

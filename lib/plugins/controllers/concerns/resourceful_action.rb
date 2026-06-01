@@ -5,16 +5,12 @@ module Plugins
         extend ActiveSupport::Concern
 
         included do
-          class_attribute :resourceful_overrides
+          include ::Plugins::Decorators.inheritables.class_attributes
+          inheritable_class_attribute :resourceful_overrides
           self.resourceful_overrides = Hash.new { |h, k| h[k] = {} }
         end
 
         module ClassMethods
-
-          def inherited sub
-            super(sub)
-            sub.resourceful_overrides = Hash.new { |h, k| h[k] = {} }
-          end
 
           def resourceful_for(actions, **opts, &block)
             opts = opts.merge(__resourceful_block__: block) if block
@@ -47,7 +43,9 @@ module Plugins
             :resource_params_attributes,
             :new_resource,
             :should_paginate,
-            :after_fetch_resource
+            :after_fetch_resource,
+            :use_model_view_path,
+            :model_view_path
           ].freeze
 
           def initialize(controller, overrides)
