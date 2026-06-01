@@ -27,9 +27,8 @@ module Plugins
 
         included do
 
-          class_attribute :resourceful_params_
-          class_attribute :resource_action_access
-          class_attribute :collection_action_access
+          include ::Plugins::Decorators.inheritables.class_attributes
+          inheritable_class_attribute :resourceful_params_, :resource_action_access, :collection_action_access
           self.resourceful_params_ = {}
           self.resource_action_access = nil
           self.collection_action_access = nil
@@ -38,21 +37,8 @@ module Plugins
 
         module ClassMethods
 
-          def resourceful_params_key
-            self.to_s
-          end
-
-          def inherited(sub)
-            super(sub)
-            parent_key = resourceful_params_key
-            sub_key = sub.resourceful_params_key
-            return if self.resourceful_params_[parent_key].blank?
-
-            sub.resourceful_params_[sub_key] = self.resourceful_params_[parent_key].dup
-          end
-
           def init_resourceful_params
-            self.resourceful_params_[self.to_s] = {
+            self.resourceful_params_ = {
               resource_context: nil,
               model_klass: nil,
               resource_identifier: nil,
@@ -70,35 +56,41 @@ module Plugins
               resources_actions: [ :index ],
               resource_params_attributes: nil,
               new_resource: nil,
-              should_paginate: true
+              should_paginate: true,
+              use_model_view_path: true,
+              model_view_path: -> {
+                klass = _model_klass
+                next unless klass.is_a?(Class)
+
+                base_class = klass.respond_to?(:base_class) ? klass.base_class : klass
+                next if klass == base_class
+
+                klass.model_name.route_key
+              }
             }
           end
 
           def resourceful_params key=nil
-            params_key = resourceful_params_key
-            if self.resourceful_params_[params_key].blank?
+            if self.resourceful_params_.blank?
               init_resourceful_params
             end
             if(key)
-              return self.resourceful_params_[params_key][key]
+              return self.resourceful_params_[key]
             else
-              return self.resourceful_params_[params_key]
+              return self.resourceful_params_
             end
           end
 
           def resourceful_params_merge! opts = {}
-            params_key = resourceful_params_key
             current_opts = resourceful_params
-            current_opts = current_opts.merge!(opts)
-            self.resourceful_params_[params_key] = current_opts
+            self.resourceful_params_ = current_opts.merge(opts)
           end
 
           def set_resource_param key, value
-            params_key = resourceful_params_key
-            if self.resourceful_params_[params_key].blank?
+            if self.resourceful_params_.blank?
               init_resourceful_params
             end
-            self.resourceful_params_[params_key][key] = value
+            self.resourceful_params_ = self.resourceful_params_.merge(key => value)
           end
 
           def fetch_resource_and_collection!(args = {}, &block)
@@ -107,13 +99,13 @@ module Plugins
           end
 
           def fetch_resource!(args = {}, &block)
-            resourceful_params.merge!(args)
+            resourceful_params_merge!(args)
             yield if block_given?
             before_action :fetch_resource, only: resource_actions
           end
 
           def fetch_resources!(args = {}, &block)
-            resourceful_params.merge!(args)
+            resourceful_params_merge!(args)
             yield if block_given?
             before_action :fetch_resources, only: resources_actions
           end
@@ -305,6 +297,22 @@ module Plugins
               else
                 set_resource_param :should_paginate, pg
               end
+            end
+          end
+
+          def use_model_view_path(value = nil, &block)
+            if value.nil? && !block_given?
+              resourceful_params(:use_model_view_path)
+            else
+              set_resource_param(:use_model_view_path, block_given? ? block : value)
+            end
+          end
+
+          def model_view_path(path = nil, &block)
+            if path.nil? && !block_given?
+              resourceful_params(:model_view_path)
+            else
+              set_resource_param(:model_view_path, block_given? ? block : path)
             end
           end
 
@@ -610,9 +618,23 @@ module Plugins
             (collection.respond_to?(:total_count) || collection.respond_to?(:total_entries))
         end
 
+        def _prefixes
+          prefixes = super
+          return prefixes unless get_value(:use_model_view_path)
+
+          view_base_path = params[:view_base_path] if request
+          model_path = get_value(:model_view_path)
+
+          priority_prefixes = []
+          priority_prefixes << view_base_path if view_base_path.present?
+          priority_prefixes << "#{controller_path}/#{model_path}" if model_path.present?
+
+          priority_prefixes.concat(prefixes).uniq
+        end
+
         def get_value key, *args
           value = self.class.resourceful_params key.to_sym
-          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions].include?(key)
+          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions, :use_model_view_path, :model_view_path].include?(key)
             mod = model_class_constant
             if mod.respond_to?(:api_resource?) && mod.api_resource?
               ctx = resource_context
