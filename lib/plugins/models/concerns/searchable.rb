@@ -28,6 +28,7 @@ module Plugins
             self.searchable_query_wrapper_class = QueryWrapper.build(self, searchable_config)
             scope :generic_search, -> (search, advanced_search={}, sort= nil, o=nil){
               if respond_to?(:ransack)
+                base_relation = self
                 qr ={['generic', o || 'cont'].join('_') => search}
                 if (advanced_search.is_a? Hash)
                   qr.merge!(advanced_search)
@@ -37,7 +38,11 @@ module Plugins
                   sort = [sort].reject(&:blank?) unless sort.is_a?(Array)
                   res.sorts= sort unless sort.empty?
                 end
-                res.result
+                result = distinct ? res.result(distinct: true) : res.result
+                result = result.includes(*base_relation.includes_values) if base_relation.includes_values.present?
+                result = result.preload(*base_relation.preload_values) if base_relation.preload_values.present?
+                result = result.eager_load(*base_relation.eager_load_values) if base_relation.eager_load_values.present?
+                result
               else
                 self
               end
