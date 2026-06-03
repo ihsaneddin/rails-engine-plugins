@@ -15,7 +15,8 @@ module Plugins
                              collection_action_path: "action/:collection_action",
                              resource_action_path: "action/:resource_action",
                              collection_action_via: [:get, :post, :put, :delete],
-                             resource_action_via: [:get, :post, :put, :delete])
+                             resource_action_via: [:get, :post, :put, :delete],
+                             &block)
         controller ||= resource
         resources_options = {
           controller: controller,
@@ -43,6 +44,7 @@ module Plugins
                   via: (resource_action_via || [:get, :post, :put, :delete]),
                   on: :member
           end
+          instance_exec(&block) if block
         end
       end
     end
