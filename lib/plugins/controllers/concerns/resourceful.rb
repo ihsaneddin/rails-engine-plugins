@@ -65,7 +65,10 @@ module Plugins
                 base_class = klass.respond_to?(:base_class) ? klass.base_class : klass
                 next if klass == base_class
 
-                klass.model_name.route_key
+                class_name = klass.name
+                next if class_name.blank?
+
+                class_name.demodulize.underscore.pluralize
               }
             }
           end
