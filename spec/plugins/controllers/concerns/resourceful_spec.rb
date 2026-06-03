@@ -54,6 +54,24 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
     end
   end
 
+  it "renders subclass templates by class name when the subclass overrides model_name" do
+    Event.singleton_class.define_method(:model_name) { Resource.model_name }
+
+    with_view_root(
+      "admin/resources/events/index.html.erb" => "event template",
+      "admin/resources/resources/index.html.erb" => "wrong model_name template",
+      "admin/resources/index.html.erb" => "base template"
+    ) do |view_root|
+      controller = build_controller do
+        model_klass Event
+        use_model_view_path true
+      end
+      controller.class.view_paths = [view_root]
+
+      expect(controller.render_to_string(:index)).to eq("event template")
+    end
+  end
+
   it "renders base model templates from the controller folder" do
     with_view_root(
       "admin/resources/resources/index.html.erb" => "invalid nested template",
