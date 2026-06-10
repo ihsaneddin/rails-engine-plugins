@@ -13,31 +13,22 @@ module Plugins
             rassoc = reflect_on_association(assoc.to_sym)
             if rassoc && rassoc.polymorphic? && rassoc.macro == :belongs_to
               att = "#{rassoc.name}_classes"
+              class_name = "::#{base_class.name}"
               class_attribute att unless respond_to?(att)
               send("#{att}=", {}) unless send(att).is_a?(Hash)
-              if send("#{att}")[new_assoc] == base_class.to_s && reflect_on_association(new_assoc.to_sym)
+              if send("#{att}")[new_assoc] == class_name && reflect_on_association(new_assoc.to_sym)
                 return
               end
-              send("#{att}")[new_assoc] = base_class.to_s
-              belongs_to new_assoc.to_sym, foreign_key: rassoc.foreign_key, class_name: base_class.to_s, optional: true
+              send("#{att}")[new_assoc] = class_name
+              belongs_to new_assoc.to_sym, foreign_key: rassoc.foreign_key, class_name: class_name, optional: true
               define_method "#{assoc}_instance" do
-                relation = self.class.send("#{att}").find { |_key, val| val == "#{base_class.to_s}" }&.first
+                relation = self.class.send("#{att}").find { |_key, val| val == class_name }&.first
                 if respond_to?(relation)
                   send(relation) || send("#{assoc}")
                 else
                   send("#{assoc}")
                 end
               end
-              # class_eval <<-CODE, __FILE__, __LINE__ + 1
-              #   def #{assoc}_instance
-              #     relation = self.class.send('#{att}').find { |_key, val| val == '#{base_class.to_s}' }&.first
-              #     if respond_to?(relation)
-              #       send(relation)
-              #     else
-              #       send('#{assoc}')
-              #     end
-              #   end
-              # CODE
             end
           end
 
