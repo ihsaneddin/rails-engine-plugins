@@ -60,6 +60,7 @@ module Plugins
               use_model_view_path: true,
               model_view_path: -> {
                 klass = _model_klass
+                klass = klass.safe_constantize if klass.is_a?(String)
                 next unless klass.is_a?(Class)
 
                 base_class = klass.respond_to?(:base_class) ? klass.base_class : klass
@@ -599,7 +600,7 @@ module Plugins
         def pagination_info
           hash = {}
           if headers
-            config = Plugins.config.api.pagination.config
+            config = pagination_config
             hash[config.per_page] = headers[config.per_page].to_i
             hash[config.page] = headers[config.page].to_i if config.page
             if config.include_total
@@ -607,7 +608,7 @@ module Plugins
               if hash[config.per_page].to_i > 0
                 hash[config.total_page] = (hash[config.total].to_f / hash[config.per_page]).ceil
                 if hash[config.page]
-                  hash[config.last_page] = hash[config.page] >= hash["Total-Pages"]
+                  hash[config.last_page] = hash[config.page] >= hash[config.total_page]
                 end
               end
             end

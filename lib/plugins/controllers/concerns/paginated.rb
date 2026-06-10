@@ -6,10 +6,17 @@ module Plugins
         def paginate *options_or_collection
           options = options_or_collection.extract_options!
           collection = options_or_collection.first
+          Helpers.config = pagination_config
           return _paginate_collection(collection, options) if collection
         end
 
         private
+
+        def pagination_config
+          return api_config.pagination.config if respond_to?(:api_config) && api_config.respond_to?(:pagination)
+
+          Plugins.config.api.pagination.config
+        end
 
         def _discover_format(options)
           for response_format in Helpers.config.response_formats
@@ -61,8 +68,12 @@ module Plugins
 
           class << self
 
+            def config=cfg
+              @config = cfg
+            end
+
             def config
-              Plugins.config.api.pagination.config
+              @config || Plugins.config.api.pagination.config
             end
 
             def paginate(collection, options = {})

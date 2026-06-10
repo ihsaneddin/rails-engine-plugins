@@ -4,6 +4,8 @@ require "action_controller"
 require "fileutils"
 require "tmpdir"
 require File.expand_path("../../../../lib/plugins/decorators", __dir__)
+require File.expand_path("../../../../lib/plugins/configuration/callbacks", __dir__)
+require File.expand_path("../../../../lib/plugins/configuration/api", __dir__)
 require File.expand_path("../../../../lib/plugins/controllers/concerns/paginated", __dir__)
 require File.expand_path("../../../../lib/plugins/controllers/concerns/responder", __dir__)
 require File.expand_path("../../../../lib/plugins/controllers/concerns/resourceful", __dir__)
@@ -182,10 +184,42 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
     end
   end
 
-  it "falls back to the controller folder when the model class is unresolved" do
-    with_view_root("admin/resources/index.html.erb" => "base template") do |view_root|
+  it "renders subclass templates when the model class is a class name string" do
+    with_view_root(
+      "admin/resources/events/index.html.erb" => "event template",
+      "admin/resources/index.html.erb" => "base template"
+    ) do |view_root|
       controller = build_controller do
         model_klass "Event"
+        use_model_view_path true
+      end
+      controller.class.view_paths = [view_root]
+
+      expect(Event).to be < Resource
+      expect(controller.render_to_string(:index)).to eq("event template")
+    end
+  end
+
+  it "renders subclass templates when the model class block returns a class name string" do
+    with_view_root(
+      "admin/resources/events/index.html.erb" => "event template",
+      "admin/resources/index.html.erb" => "base template"
+    ) do |view_root|
+      controller = build_controller do
+        model_klass { "Event" }
+        use_model_view_path true
+      end
+      controller.class.view_paths = [view_root]
+
+      expect(Event).to be < Resource
+      expect(controller.render_to_string(:index)).to eq("event template")
+    end
+  end
+
+  it "falls back to the controller folder when the model class string is unresolved" do
+    with_view_root("admin/resources/index.html.erb" => "base template") do |view_root|
+      controller = build_controller do
+        model_klass "MissingEvent"
         use_model_view_path true
       end
       controller.class.view_paths = [view_root]
@@ -240,5 +274,33 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
 
     expect(parent.class.resourceful_overrides[:show][:model_klass]).to eq(Resource)
     expect(child.class.resourceful_overrides[:show][:model_klass]).to eq(Event)
+  end
+
+  it "uses configured total page header when calculating the last page flag" do
+    pagination_config = Plugins::Configuration::Api::Pagination::Configuration.new
+    pagination_config.page = "Page"
+    pagination_config.per_page = "Limit"
+    pagination_config.total = "Total-Count"
+    pagination_config.total_page = "Page-Count"
+    pagination_config.last_page = "Is-Last-Page"
+
+    pagination = Module.new
+    pagination.define_singleton_method(:config) { pagination_config }
+
+    api_config = Module.new
+    api_config.define_singleton_method(:pagination) { pagination }
+
+    controller = build_controller do
+      define_method(:api_config) { api_config }
+    end
+    controller.set_response!(ActionDispatch::TestResponse.new)
+    controller.headers["Limit"] = "25"
+    controller.headers["Page"] = "4"
+    controller.headers["Total-Count"] = "100"
+
+    expect(controller.send(:pagination_info)).to include(
+      "Page-Count" => 4,
+      "Is-Last-Page" => true
+    )
   end
 end
