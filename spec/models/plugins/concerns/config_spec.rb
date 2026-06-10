@@ -37,6 +37,45 @@ RSpec.describe Plugins::Models::Concerns::Config do
   end
 
   describe Plugins::Models::Concerns::Config::Collection do
+    describe "dynamic entries" do
+      it "duplicates nested config templates for each dynamic entry" do
+        collection = described_class.new(
+          values: {
+            actions: described_class.new(values: { params: described_class.new(values: {}) })
+          }
+        )
+
+        collection.setup do
+          assignment_overlap do
+            actions do
+              reassign_staff do
+                params do
+                  reassignments
+                end
+              end
+            end
+          end
+
+          schedule_exception_overlap do
+            actions do
+              reassign_staff do
+                params do
+                  blocked_ranges
+                end
+              end
+            end
+          end
+        end
+
+        assignment_params = collection[:assignment_overlap].actions[:reassign_staff].params
+        schedule_params = collection[:schedule_exception_overlap].actions[:reassign_staff].params
+
+        expect(assignment_params.keys).to eq([:reassignments])
+        expect(schedule_params.keys).to eq([:blocked_ranges])
+        expect(assignment_params).not_to equal(schedule_params)
+      end
+    end
+
     describe "#deep_merge" do
       it "preserves source entries, overrides matching entries, and appends new entries" do
         base = described_class.new(values: {})

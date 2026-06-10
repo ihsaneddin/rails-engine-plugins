@@ -172,7 +172,11 @@ module Plugins
 
           def ensure_entry(key)
             values[key] ||= begin
-              cfg = Config.new(values: (template || {}).merge(value: (template && template[:value]) || key))
+              cfg = Config.new(
+                values: (template || {}).transform_values { |value| duplicable_merge_value(value) }.merge(
+                  value: (template && template[:value]) || key
+                )
+              )
               cfg.dynamic_keys!               # allow value/metrics/etc.
               cfg.set_context(@_context)
               order << key
