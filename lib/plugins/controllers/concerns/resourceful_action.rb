@@ -35,6 +35,7 @@ module Plugins
             :attr_accessor_name,
             :presenter,
             :query_scope,
+            :default_query_scope,
             :query_includes,
             :resource_identifier,
             :resource_finder_key,

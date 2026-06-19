@@ -22,7 +22,11 @@ module Plugins
               send("#{att}")[new_assoc] = class_name
               belongs_to new_assoc.to_sym, foreign_key: rassoc.foreign_key, class_name: class_name, optional: true
               define_method "#{assoc}_instance" do
-                relation = self.class.send("#{att}").find { |_key, val| val == class_name }&.first
+                type = public_send(rassoc.foreign_type)
+                relation = self.class.send("#{att}").find do |_key, val|
+                  val.to_s.delete_prefix("::") == type.to_s ||
+                    val.to_s.delete_prefix("::") == type.to_s.safe_constantize&.base_class&.name
+                end&.first
                 if respond_to?(relation)
                   send(relation) || send("#{assoc}")
                 else

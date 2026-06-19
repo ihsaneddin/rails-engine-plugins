@@ -276,6 +276,73 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
     expect(child.class.resourceful_overrides[:show][:model_klass]).to eq(Event)
   end
 
+  it "applies default query scope to the resolved query scope result" do
+    controller = build_controller do
+      model_klass "Resource"
+      query_scope { |_model| [:query_scope] }
+      default_query_scope { |query| query + [:default_query_scope] }
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create)
+
+    expect(controller.send(:_query)).to eq(%i[query_scope default_query_scope])
+  end
+
+  it "resolves resourceful redirect paths from route defaults with the current record" do
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create("action_dispatch.request.path_parameters" => {
+      resourceful_redirects: {
+        update: {
+          to: "edit",
+          id: "record"
+        }
+      }
+    }))
+    controller.replace_resource(instance_double("Resource", to_param: "42"))
+    allow(controller).to receive(:url_for) do |options|
+      "/resources/#{options.fetch(:id)}/#{options.fetch(:action)}"
+    end
+
+    expect(controller.send(:resourceful_redirect_path, :update)).to eq("/resources/42/edit")
+  end
+
+  it "falls back to controller resourceful redirect config when no route default is present" do
+    controller = build_controller do
+      model_klass "Resource"
+      resourceful_redirects update: :edit
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create)
+    controller.replace_resource(instance_double("Resource", to_param: "43"))
+    allow(controller).to receive(:url_for) do |options|
+      "/resources/#{options.fetch(:id)}/#{options.fetch(:action)}"
+    end
+
+    expect(controller.send(:resourceful_redirect_path, :update)).to eq("/resources/43/edit")
+  end
+
+  it "returns explicit absolute paths from route redirect defaults" do
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create("action_dispatch.request.path_parameters" => {
+      resourceful_redirects: {
+        create: "/admin/resources"
+      }
+    }))
+
+    expect(controller.send(:resourceful_redirect_path, :create)).to eq("/admin/resources")
+  end
+
+  it "returns fallback when no resourceful redirect is configured" do
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create)
+
+    expect(controller.send(:resourceful_redirect_path, :create, fallback: "/fallback")).to eq("/fallback")
+  end
+
   it "uses configured total page header when calculating the last page flag" do
     pagination_config = Plugins::Configuration::Api::Pagination::Configuration.new
     pagination_config.page = "Page"
