@@ -115,6 +115,7 @@ module Plugins
               end
 
               WARNING
+              use_kaminari
             elsif defined?(Pagy)
               use_pagy
             elsif defined?(Kaminari)

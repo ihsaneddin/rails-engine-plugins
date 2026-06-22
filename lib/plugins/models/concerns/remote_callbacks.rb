@@ -46,6 +46,7 @@ module Plugins
           before_create after_create
           before_update after_update
           before_destroy after_destroy
+          after_commit
           validate
         ]
 
@@ -232,4 +233,3 @@ end
 #     end
 #   end
 # end
-

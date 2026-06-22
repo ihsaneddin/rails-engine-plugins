@@ -80,6 +80,7 @@ module Plugins
                 resource_var_name: nil,
                 query_includes: nil,
                 query_scope: nil,
+                default_query_scope: nil,
                 resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
                 resources_actions: [ :index ],
                 after_fetch_resource: nil,
@@ -216,6 +217,18 @@ module Plugins
                 set_resource_param :query_scope, block
               else
                 set_resource_param :query_scope, query
+              end
+            end
+          end
+
+          def default_query_scope(query = nil, &block)
+            if query.blank? && !block_given?
+              resourceful_params(:default_query_scope)
+            else
+              if block_given?
+                set_resource_param :default_query_scope, block
+              else
+                set_resource_param :default_query_scope, query
               end
             end
           end
@@ -571,6 +584,7 @@ module Plugins
             if(class_context)
               model = _apply_query_includes(model_class_constant)
               query = get_value(:query_scope, model.where.not(id: nil)) || model.where.not(id: nil)
+              query = get_value(:default_query_scope, query) || query
               if(params[:order_by])
                 query = query.order params[:order_by]
               end

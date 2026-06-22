@@ -50,6 +50,7 @@ module Plugins
                 self.class <= ActionController::API ? nil : model_klass_constant.model_name.param_key
               },
               query_scope: nil,
+              default_query_scope: ->(query) { query },
               query_includes: nil,
               after_fetch_resource: nil,
               resource_actions: [ :show, :new, :create, :edit, :update, :destroy ],
@@ -57,9 +58,11 @@ module Plugins
               resource_params_attributes: nil,
               new_resource: nil,
               should_paginate: true,
+              resourceful_redirects: nil,
               use_model_view_path: true,
               model_view_path: -> {
                 klass = _model_klass
+                klass = klass.safe_constantize if klass.is_a?(String)
                 next unless klass.is_a?(Class)
 
                 base_class = klass.respond_to?(:base_class) ? klass.base_class : klass
@@ -182,6 +185,18 @@ module Plugins
             end
           end
 
+          def default_query_scope(query = nil, &block)
+            if query.blank? && !block_given?
+              resourceful_params(:default_query_scope)
+            else
+              if block_given?
+                set_resource_param :default_query_scope, block
+              else
+                set_resource_param :default_query_scope, query
+              end
+            end
+          end
+
           def query_includes(includes = nil, &block)
             if includes.nil? && !block_given?
               resourceful_params(:query_includes)
@@ -300,6 +315,14 @@ module Plugins
               else
                 set_resource_param :should_paginate, pg
               end
+            end
+          end
+
+          def resourceful_redirects(redirects = nil, &block)
+            if redirects.nil? && !block_given?
+              resourceful_params(:resourceful_redirects)
+            else
+              set_resource_param(:resourceful_redirects, block_given? ? block : redirects)
             end
           end
 
@@ -494,6 +517,7 @@ module Plugins
         def _query
           model = _apply_query_includes(model_klass_constant)
           query = get_value(:query_scope, model) || model.where.not(id: nil)
+          query = get_value(:default_query_scope, query) || query
           if(params[:order_by])
             query = query.order params[:order_by]
           end
@@ -599,7 +623,7 @@ module Plugins
         def pagination_info
           hash = {}
           if headers
-            config = Plugins.config.api.pagination.config
+            config = pagination_config
             hash[config.per_page] = headers[config.per_page].to_i
             hash[config.page] = headers[config.page].to_i if config.page
             if config.include_total
@@ -607,12 +631,28 @@ module Plugins
               if hash[config.per_page].to_i > 0
                 hash[config.total_page] = (hash[config.total].to_f / hash[config.per_page]).ceil
                 if hash[config.page]
-                  hash[config.last_page] = hash[config.page] >= hash["Total-Pages"]
+                  hash[config.last_page] = hash[config.page] >= hash[config.total_page]
                 end
               end
             end
             hash
           end
+        end
+
+        def resourceful_redirect_to(action_name, notice: nil, alert: nil, status: nil, fallback: nil)
+          path = resourceful_redirect_path(action_name, fallback: fallback)
+          options = {}
+          options[:notice] = notice if notice.present?
+          options[:alert] = alert if alert.present?
+          options[:status] = status if status.present?
+          redirect_to(path, **options)
+        end
+
+        def resourceful_redirect_path(action_name, fallback: nil)
+          rule = resourceful_redirect_rule_for(action_name)
+          return fallback if rule.blank?
+
+          resourceful_redirect_path_for(rule, fallback: fallback)
         end
 
         def paginated_collection?(collection)
@@ -635,9 +675,72 @@ module Plugins
           priority_prefixes.concat(prefixes).uniq
         end
 
+        def resourceful_redirect_rule_for(action_name)
+          redirects = params[:resourceful_redirects].presence if request
+          redirects = get_value(:resourceful_redirects) if redirects.blank?
+          redirects = redirects.to_unsafe_h if redirects.respond_to?(:to_unsafe_h)
+          redirects = redirects.to_h if redirects.respond_to?(:to_h)
+          redirects = redirects.with_indifferent_access if redirects.respond_to?(:with_indifferent_access)
+          redirects&.[](action_name.to_s)
+        end
+
+        def resourceful_redirect_path_for(rule, fallback: nil)
+          return rule if rule.is_a?(String) && rule.start_with?("/")
+
+          if rule.is_a?(Hash)
+            rule = rule.with_indifferent_access
+            return rule[:path] if rule[:path].is_a?(String) && rule[:path].start_with?("/")
+
+            action = rule[:to] || rule[:action]
+            route_params = resourceful_redirect_route_params(rule[:params])
+            route_params[:id] = resourceful_redirect_record_param(rule[:id]) if rule.key?(:id)
+            return fallback if action.blank?
+
+            resourceful_redirect_action_path(action, route_params, fallback: fallback)
+          else
+            resourceful_redirect_action_path(rule, {}, fallback: fallback)
+          end
+        end
+
+        def resourceful_redirect_action_path(action, route_params, fallback: nil)
+          action = action.to_s
+          return fallback if action.blank?
+
+          route_params = route_params.symbolize_keys if route_params.respond_to?(:symbolize_keys)
+          route_params ||= {}
+          if %w[show edit].include?(action)
+            route_params[:id] ||= record.to_param if record
+          end
+
+          url_for({ action: action, only_path: true }.merge(route_params))
+        rescue ActionController::UrlGenerationError
+          fallback
+        end
+
+        def resourceful_redirect_route_params(config)
+          return {} if config.blank?
+
+          config = config.to_unsafe_h if config.respond_to?(:to_unsafe_h)
+          config = config.to_h if config.respond_to?(:to_h)
+          config.each_with_object({}) do |(key, value), hash|
+            hash[key] = resourceful_redirect_record_param(value)
+          end
+        end
+
+        def resourceful_redirect_record_param(value)
+          case value
+          when :record, "record"
+            record&.to_param
+          when Symbol
+            record&.public_send(value)
+          else
+            value
+          end
+        end
+
         def get_value key, *args
           value = self.class.resourceful_params key.to_sym
-          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions, :use_model_view_path, :model_view_path].include?(key)
+          if value.nil? && ![:model_klass, :resource_context, :resource_actions, :resources_actions, :resourceful_redirects, :use_model_view_path, :model_view_path].include?(key)
             mod = model_class_constant
             if mod.respond_to?(:api_resource?) && mod.api_resource?
               ctx = resource_context

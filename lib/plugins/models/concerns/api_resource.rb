@@ -64,6 +64,7 @@ module Plugins
             new_resource: nil,
             attr_accessor_name: nil,
             query_scope: proc {|query| query },
+            default_query_scope: nil,
             query_includes: nil,
             after_fetch_resource: nil,
             should_paginate: true,

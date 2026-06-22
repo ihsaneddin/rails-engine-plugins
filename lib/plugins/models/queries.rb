@@ -2,6 +2,8 @@ module Plugins
   module Models
     module Queries
       module Object
+        include ::Plugins.decorators.registered
+
         def self.included(base)
           base.include ::Plugins.decorators.method_annotations
           base.include ::Plugins.decorators.method_decorators
@@ -19,8 +21,7 @@ module Plugins
           base.query_methods = {}
           base.tags = []
 
-          base.define_method_decorator :define_query do |method_name, original, *args, block, **_opts|
-            self.query_methods[method_name]= "#{query_type}_#{method_name}"
+          base.define_method_decorator :process_query do |method_name, original, *args, block, **_opts|
             result = original.call(*args, &block)
 
             valid_query_object!(result) if result
@@ -39,6 +40,14 @@ module Plugins
         end
 
         module ClassMethods
+          def define_query(method_name, **_opts)
+            method_name = method_name.to_sym
+            self.query_methods = query_methods.merge(method_name => "#{query_type}_#{method_name}")
+            decorate_method(method_name, with: :process_query)
+
+            method_name
+          end
+
           def inherited(subclass)
             super(subclass) if defined?(super)
             subclass.query_type = subclass.name.demodulize.underscore

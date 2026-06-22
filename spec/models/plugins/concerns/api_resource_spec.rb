@@ -27,6 +27,8 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
               http_method "put"
             end
           end
+
+          default_query_scope { |query| query + [:base_default_query_scope] }
         end
 
         grape_api_resource "app", from: "payment_core" do
@@ -41,6 +43,7 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(app_cfg.values[:resource_identifier]).to eq(:uuid)
       expect(app_cfg.values[:resource_actions][:approve].values[:http_method]).to eq("put")
       expect(app_cfg.values[:resource_actions][:approve]).not_to equal(base_cfg.values[:resource_actions][:approve])
+      expect(app_cfg.get(:default_query_scope, [])).to eq([:base_default_query_scope])
       expect(klass.default_grape_api_resource_config_context).to eq("payment_core")
     end
 
