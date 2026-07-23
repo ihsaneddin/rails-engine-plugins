@@ -468,8 +468,6 @@ module Plugins
 
         def action_params(entry)
           method_params = entry.params
-          return permitted_attributes if method_params == :permitted_attributes
-
           method_params.is_a?(Array) ? params.permit(method_params) : method_params
         end
 
@@ -575,21 +573,7 @@ module Plugins
         end
 
         def permitted_attributes
-          attributes = _resource_params
-          fixed_params = {}
-          mod = model_class_constant
-
-          if mod.respond_to?(:api_resource?) && mod.api_resource?
-            cfg = mod.api_resource_of(resource_context)
-            fixed_params = cfg[:fixed_resource_params] if cfg
-          end
-
-          unless fixed_params.is_a?(Hash)
-            raise ArgumentError, "fixed_resource_params must be a Hash"
-          end
-
-          trusted_fixed_params = ActionController::Parameters.new(fixed_params.deep_dup).permit!
-          trusted_fixed_params.reverse_merge(attributes)
+          _resource_params
         end
 
         def _resource_params

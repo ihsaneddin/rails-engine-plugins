@@ -76,7 +76,7 @@ module Plugins
         end
 
         def self.default_api_options
-          default_options.merge(fixed_resource_params: {})
+          default_options.dup
         end
 
         def self.deep_dup_option_value(value)
