@@ -61,6 +61,14 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(klass.default_grape_api_resource_config_context).to eq("app")
     end
 
+    it "does not expose Rails controller fixed resource params" do
+      klass = builder.build_model do
+        grape_api_resource "base", default: true
+      end
+
+      expect(klass.grape_api_resource_of("base").exists?(:fixed_resource_params)).to eq(false)
+    end
+
     it "raises for an unknown source context" do
       expect do
         builder.build_model do
@@ -73,6 +81,45 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
   end
 
   describe ".api_resource" do
+    it "defaults fixed resource params to an empty hash" do
+      klass = builder.build_model do
+        api_resource "base", default: true
+      end
+
+      expect(klass.api_resource_of("base").fixed_resource_params).to eq({})
+    end
+
+    it "stores fixed resource params as a static hash" do
+      klass = builder.build_model do
+        api_resource "base", default: true do
+          fixed_resource_params({ source: "trusted", kind: "managed" })
+        end
+      end
+
+      expect(klass.api_resource_of("base").fixed_resource_params).to eq(
+        source: "trusted",
+        kind: "managed"
+      )
+    end
+
+    it "inherits fixed resource params without sharing mutable state" do
+      klass = builder.build_model do
+        api_resource "base", default: true do
+          fixed_resource_params({ source: "trusted" })
+        end
+
+        api_resource "derived", from: "base"
+      end
+
+      base_params = klass.api_resource_of("base").fixed_resource_params
+      derived_params = klass.api_resource_of("derived").fixed_resource_params
+      derived_params[:source] = "changed"
+
+      expect(base_params).to eq(source: "trusted")
+      expect(derived_params).to eq(source: "changed")
+      expect(derived_params).not_to equal(base_params)
+    end
+
     it "clones a source context and applies overrides" do
       klass = builder.build_model do
         api_resource "payment_core", default: true do
