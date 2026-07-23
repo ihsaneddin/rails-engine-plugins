@@ -10,6 +10,8 @@ require File.expand_path("../../../../lib/plugins/controllers/concerns/paginated
 require File.expand_path("../../../../lib/plugins/controllers/concerns/responder", __dir__)
 require File.expand_path("../../../../lib/plugins/controllers/concerns/resourceful", __dir__)
 require File.expand_path("../../../../lib/plugins/controllers/concerns/resourceful_action", __dir__)
+require File.expand_path("../../../../lib/plugins/models/concerns/config", __dir__)
+require File.expand_path("../../../../lib/plugins/models/concerns/api_resource", __dir__)
 
 RSpec.describe Plugins::Controllers::Concerns::Resourceful do
   before do
@@ -39,6 +41,214 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
 
       yield root
     end
+  end
+
+  def configure_resource(fixed_params: nil)
+    Resource.include Plugins::Models::Concerns::ApiResource
+    Resource.api_resource "default", default: true do
+      resource_params_attributes [:name, :source, :kind, { metadata: [:origin] }]
+      fixed_resource_params(fixed_params) unless fixed_params.nil?
+    end
+  end
+
+  def request_with_body(parameters)
+    ActionDispatch::TestRequest.create(
+      "action_dispatch.request.request_parameters" => parameters
+    )
+  end
+
+  def request_with_query(parameters)
+    ActionDispatch::TestRequest.create(
+      "action_dispatch.request.query_parameters" => parameters
+    )
+  end
+
+  it "merges fixed resource params after permitting nested create body params" do
+    fixed_params = { source: "trusted", kind: "managed" }
+    configure_resource(fixed_params: fixed_params)
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_body(
+        "resource" => {
+          "name" => "Example",
+          "source" => "request",
+          "kind" => "request",
+          "ignored" => "value"
+        }
+      )
+    )
+    allow(controller).to receive(:action_name).and_return("create")
+
+    attributes = controller.send(:permitted_attributes)
+
+    expect(attributes).to be_a(ActionController::Parameters)
+    expect(attributes.to_h).to eq(
+      "name" => "Example",
+      "source" => "trusted",
+      "kind" => "managed"
+    )
+
+    attributes[:source].replace("changed")
+    expect(fixed_params).to eq(source: "trusted", kind: "managed")
+    expect(Resource.api_resource_of("default")[:fixed_resource_params]).to eq(
+      source: "trusted",
+      kind: "managed"
+    )
+  end
+
+  it "deeply isolates and permits nested trusted fixed resource params" do
+    fixed_params = {
+      source: "trusted",
+      metadata: { origin: "trusted" }
+    }
+    configure_resource(fixed_params: fixed_params)
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_body(
+        "resource" => {
+          "source" => "request",
+          "metadata" => { "origin" => "request" }
+        }
+      )
+    )
+
+    attributes = controller.send(:permitted_attributes)
+
+    expect(attributes).to be_permitted
+    expect(attributes[:metadata]).to be_permitted
+    expect(attributes.to_h).to eq(
+      "source" => "trusted",
+      "metadata" => { "origin" => "trusted" }
+    )
+
+    attributes[:metadata][:origin].replace("changed")
+    expect(fixed_params).to eq(
+      source: "trusted",
+      metadata: { origin: "trusted" }
+    )
+    expect(Resource.api_resource_of("default")[:fixed_resource_params]).to eq(
+      source: "trusted",
+      metadata: { origin: "trusted" }
+    )
+  end
+
+  it "merges fixed resource params after permitting top-level update query params" do
+    configure_resource(fixed_params: { source: "trusted", kind: "managed" })
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_query(
+        "name" => "Example",
+        "source" => "request",
+        "kind" => "request",
+        "ignored" => "value"
+      )
+    )
+    allow(controller).to receive(:action_name).and_return("update")
+
+    expect(controller.send(:permitted_attributes).to_h).to eq(
+      "name" => "Example",
+      "source" => "trusted",
+      "kind" => "managed"
+    )
+  end
+
+  it "preserves nested create permitted params when fixed resource params are absent" do
+    configure_resource
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_body(
+        "resource" => {
+          "name" => "Example",
+          "source" => "request",
+          "ignored" => "value"
+        }
+      )
+    )
+    allow(controller).to receive(:action_name).and_return("create")
+
+    expect(controller.send(:permitted_attributes).to_h).to eq(
+      "name" => "Example",
+      "source" => "request"
+    )
+  end
+
+  it "preserves top-level update permitted params when fixed resource params are absent" do
+    configure_resource
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_query(
+        "name" => "Example",
+        "source" => "request",
+        "ignored" => "value"
+      )
+    )
+    allow(controller).to receive(:action_name).and_return("update")
+
+    expect(controller.send(:permitted_attributes).to_h).to eq(
+      "name" => "Example",
+      "source" => "request"
+    )
+  end
+
+  it "rejects non-Hash fixed resource params with an explicit error" do
+    configure_resource(fixed_params: [:source])
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(request_with_query({}))
+
+    expect {
+      controller.send(:permitted_attributes)
+    }.to raise_error(ArgumentError, "fixed_resource_params must be a Hash")
+  end
+
+  it "rejects callable fixed resource params without evaluating them" do
+    evaluated = false
+    configure_resource(fixed_params: proc {
+      evaluated = true
+      { source: "evaluated" }
+    })
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(request_with_query({}))
+
+    expect {
+      controller.send(:permitted_attributes)
+    }.to raise_error(ArgumentError, "fixed_resource_params must be a Hash")
+    expect(evaluated).to eq(false)
+  end
+
+  it "uses merged permitted attributes for resource action params" do
+    configure_resource(fixed_params: { source: "trusted" })
+    controller = build_controller do
+      model_klass "Resource"
+    end
+    controller.set_request!(
+      request_with_body(
+        "resource" => {
+          "name" => "Example",
+          "source" => "request",
+          "ignored" => "value"
+        }
+      )
+    )
+    entry = Struct.new(:params).new(:permitted_attributes)
+
+    expect(controller.send(:action_params, entry).to_h).to eq(
+      "name" => "Example",
+      "source" => "trusted"
+    )
   end
 
   it "renders subclass templates from a nested controller/model folder by default" do
