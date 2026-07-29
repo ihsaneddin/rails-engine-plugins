@@ -24,6 +24,8 @@ module Plugins
                 presenter_name
               end
             end
+            return p_name if p_name.present?
+
             if respond_to?(:model_class_constant) && model_class_constant&.respond_to?(:grape_api_resource?) && model_class_constant.grape_api_resource?
               mod = model_class_constant
               ctx = get_value(:resource_context)
