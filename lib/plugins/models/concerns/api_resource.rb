@@ -3,6 +3,10 @@ module Plugins
     module Concerns
       module ApiResource
 
+        DEFAULT_RESOURCE_FINDER = proc { |query, identifier, api| query.find_by!(identifier) }.freeze
+        DEFAULT_RESOURCES_FINDER = proc { |query, identifier, api| query.where(identifier) }.freeze
+        DEFAULT_QUERY_SCOPE = proc { |query| query }.freeze
+
         def self.included base
           base.extend ClassMethods
         end
@@ -56,14 +60,14 @@ module Plugins
           {
             use_api_evaluation: false,
             default: false,
-            resource_finder: proc { |query, identifier, api| query.find_by!(identifier) },
-            resources_finder: proc { |query, identifier, api|  query.where(identifier) },
+            resource_finder: DEFAULT_RESOURCE_FINDER,
+            resources_finder: DEFAULT_RESOURCES_FINDER,
             resource_identifier: "id",
             resource_finder_key: "id",
             resource_params_attributes: [],
             new_resource: nil,
             attr_accessor_name: nil,
-            query_scope: proc {|query| query },
+            query_scope: DEFAULT_QUERY_SCOPE,
             default_query_scope: nil,
             query_includes: nil,
             after_fetch_resource: nil,
@@ -81,6 +85,8 @@ module Plugins
 
         def self.deep_dup_option_value(value)
           case value
+          when Proc
+            value
           when ::Plugins::Models::Concerns::Config
             value.dup
           when Array
