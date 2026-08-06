@@ -22,6 +22,8 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
           presenter "BasePresenter"
           resource_identifier :uuid
 
+          query_scope { |query| query + [:base_query_scope] }
+
           resource_actions do
             approve do
               http_method "put"
@@ -43,6 +45,7 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(app_cfg.values[:resource_identifier]).to eq(:uuid)
       expect(app_cfg.values[:resource_actions][:approve].values[:http_method]).to eq("put")
       expect(app_cfg.values[:resource_actions][:approve]).not_to equal(base_cfg.values[:resource_actions][:approve])
+      expect(app_cfg.get(:query_scope, [])).to eq([:base_query_scope])
       expect(app_cfg.get(:default_query_scope, [])).to eq([:base_default_query_scope])
       expect(klass.default_grape_api_resource_config_context).to eq("payment_core")
     end
@@ -78,6 +81,7 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
         api_resource "payment_core", default: true do
           resource_identifier :uuid
           resource_finder_key :uuid
+          query_scope { |query| query + [:base_query_scope] }
         end
 
         api_resource "app", from: "payment_core" do
@@ -90,6 +94,7 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
 
       expect(app_cfg.values[:resource_identifier]).to eq(:uuid)
       expect(app_cfg.values[:resource_finder_key]).to eq(:slug)
+      expect(app_cfg.get(:query_scope, [])).to eq([:base_query_scope])
       expect(app_cfg).not_to equal(base_cfg)
       expect(klass.default_api_resource_config_context).to eq("payment_core")
     end
