@@ -7,5 +7,8 @@ if defined?(Grape::API)
   else
     Grape::API
   end
+  # Install before including Plugins::Grape because that inclusion defines API
+  # methods which can trigger the affected Grape lifecycle interception.
+  Plugins::Grape.install_add_setup_guard(Grape::API)
   Grape::API.send(:include, Plugins::Grape)
 end
