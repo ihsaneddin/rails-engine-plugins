@@ -64,6 +64,32 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(klass.default_grape_api_resource_config_context).to eq("app")
     end
 
+    it "does not retain an inherited target context when cloning a subclass source context" do
+      parent = builder.build_model do
+        grape_api_resource "payment_core" do
+          presenter "ParentSourcePresenter"
+        end
+
+        grape_api_resource "app", from: "payment_core" do
+          presenter "ParentAppPresenter"
+        end
+      end
+
+      child = Class.new(parent) do
+        grape_api_resource "payment_core" do
+          presenter "ChildSourcePresenter"
+          query_scope { |query| query + [:child_query_scope] }
+        end
+
+        grape_api_resource "app", from: "payment_core"
+      end
+
+      app_cfg = child.grape_api_resource_of("app")
+
+      expect(app_cfg.values[:presenter]).to eq("ChildSourcePresenter")
+      expect(app_cfg.get(:query_scope, [])).to eq([:child_query_scope])
+    end
+
     it "raises for an unknown source context" do
       expect do
         builder.build_model do
@@ -97,6 +123,34 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(app_cfg.get(:query_scope, [])).to eq([:base_query_scope])
       expect(app_cfg).not_to equal(base_cfg)
       expect(klass.default_api_resource_config_context).to eq("payment_core")
+    end
+
+    it "does not retain an inherited target context when cloning a subclass source context" do
+      parent = builder.build_model do
+        api_resource "payment_core" do
+          presenter "ParentSourcePresenter"
+          resource_finder_key :uuid
+        end
+
+        api_resource "app", from: "payment_core" do
+          presenter "ParentAppPresenter"
+          resource_finder_key :slug
+        end
+      end
+
+      child = Class.new(parent) do
+        api_resource "payment_core" do
+          presenter "ChildSourcePresenter"
+          resource_finder_key :id
+        end
+
+        api_resource "app", from: "payment_core"
+      end
+
+      app_cfg = child.api_resource_of("app")
+
+      expect(app_cfg.values[:presenter]).to eq("ChildSourcePresenter")
+      expect(app_cfg.values[:resource_finder_key]).to eq(:id)
     end
 
     it "raises for an unknown source context" do
