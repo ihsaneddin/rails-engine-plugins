@@ -56,7 +56,7 @@ module Plugins
 
           KEYS.each do |key|
             define_method(key) do |value = nil, &block|
-              @overrides[key] = block_given? ? block : value
+              @overrides[key] = block || value
             end
           end
 
@@ -80,7 +80,7 @@ module Plugins
           return prev unless action
 
           overrides = self.class.resourceful_overrides[action]
-          return prev unless overrides && overrides.key?(key)
+          return prev unless overrides
 
           if overrides[:__resourceful_block__]
             @_resourceful_action_overrides ||= {}
@@ -91,6 +91,8 @@ module Plugins
             end
             overrides = overrides.merge(cache)
           end
+
+          return prev unless overrides.key?(key)
 
           value = overrides[key]
           return prev if value.nil?
