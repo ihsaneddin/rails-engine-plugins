@@ -276,6 +276,28 @@ RSpec.describe Plugins::Controllers::Concerns::Resourceful do
     expect(child.class.resourceful_overrides[:show][:model_klass]).to eq(Event)
   end
 
+  it "applies block-defined resourceful action overrides" do
+    controller = build_controller do
+      query_scope { |_model| [:base_scope] }
+      query_includes [:base_include]
+      should_paginate? true
+
+      resourceful_for :index do
+        query_scope { |prev| prev + [:index_scope] }
+        query_includes { |prev| prev + [:index_include] }
+        should_paginate { false }
+      end
+    end
+    controller.set_request!(ActionDispatch::TestRequest.create(
+      "action_dispatch.request.path_parameters" => { action: "index" }
+    ))
+    allow(controller).to receive(:action_name).and_return("index")
+
+    expect(controller.send(:get_value, :query_scope)).to eq(%i[base_scope index_scope])
+    expect(controller.send(:get_value, :query_includes)).to eq(%i[base_include index_include])
+    expect(controller.send(:get_value, :should_paginate)).to be(false)
+  end
+
   it "applies default query scope to the resolved query scope result" do
     controller = build_controller do
       model_klass "Resource"
