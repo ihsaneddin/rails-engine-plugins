@@ -695,12 +695,12 @@ module Plugins
               path = opts[:path] || ""
               action_name = opts[:action_name] || "resource_actions"
               route_opts = opts[:route_options] || {}
-              route [:get, :post, :put, :delete],
+              route [:get, :post, :put, :patch, :delete],
                     [path, ":#{action_name.to_s}"].join("/"),
                     route_opts do
                 not_found = -> { standard_not_found_error(message: "Not found") }
 
-                klass = case klass
+                resolved_klass = case klass
                 when String
                   klass.constantize
                 when Proc
@@ -710,7 +710,7 @@ module Plugins
                 else
                   klass
                 end
-                cfg   = klass.grape_api_resource_of(context)
+                cfg   = resolved_klass.grape_api_resource_of(context)
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.resource_actions&.[](key)
 
@@ -759,13 +759,13 @@ module Plugins
               path = opts[:path] || ""
               action_name = opts[:action_name] || "collection_actions"
               route_opts = opts[:route_options] || {}
-              route [:get, :post, :put, :delete],
+              route [:get, :post, :put, :patch, :delete],
                     [path, ":#{action_name.to_s}"].join("/"),
                     route_opts do
 
                 not_found = -> { standard_not_found_error(message: "Not found") }
 
-                klass = case klass
+                resolved_klass = case klass
                 when String
                   klass.constantize
                 when Proc
@@ -775,7 +775,7 @@ module Plugins
                 else
                   klass
                 end
-                cfg   = klass.grape_api_resource_of(context)
+                cfg   = resolved_klass.grape_api_resource_of(context)
                 key   = params[action_name.to_sym].to_s.to_sym
                 entry = cfg&.collection_actions&.[](key)
                 not_found.call unless entry
