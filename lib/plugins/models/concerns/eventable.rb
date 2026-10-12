@@ -216,66 +216,9 @@ module Plugins
         module SubscribesToEvents
           mattr_accessor :eventable_subsciber_classes
           @@eventable_subsciber_classes = []
-          @eventable_unload_callbacks = Set.new
-
-          class SubscriptionRegistration
-            attr_reader :bus, :subscriptions
-
-            def initialize(bus)
-              @bus = bus
-              @subscriptions = []
-            end
-
-            def registry
-              bus.registry
-            end
-
-            def subscribe(*args, **kwargs, &block)
-              bus.subscribe(*args, **kwargs, &block).tap do |subscription|
-                subscriptions << subscription
-              end
-            end
-
-            def subscribe_to_all(*args, **kwargs, &block)
-              bus.subscribe_to_all(*args, **kwargs, &block).tap do |subscription|
-                subscriptions << subscription
-              end
-            end
-
-            def subscribe_with_matcher(*args, **kwargs, &block)
-              bus.subscribe_with_matcher(*args, **kwargs, &block).tap do |subscription|
-                subscriptions << subscription
-              end
-            end
-
-            def unsubscribe_all!
-              subscriptions.each { |subscription| bus.unsubscribe(subscription) }
-            end
-          end
 
           def self.<<(base)
             @@eventable_subsciber_classes << base
-          end
-
-          def self.register_unload_callback(klass)
-            return unless klass.name && defined?(Rails) && Rails.respond_to?(:application)
-            return unless (application = Rails.application)
-
-            loader = application.autoloaders.main
-            return unless loader&.respond_to?(:on_unload)
-            return if @eventable_unload_callbacks.include?(klass.name)
-
-            loader.on_unload(klass.name) do |unloaded, _path|
-              unloaded.eventable_unregister_event_buses!
-              eventable_subsciber_classes.delete(unloaded)
-            end
-            @eventable_unload_callbacks.add(klass.name)
-          end
-
-          def self.install_unload_callbacks!
-            @@eventable_subsciber_classes.each do |klass|
-              register_unload_callback(klass)
-            end
           end
 
           def self.eventable_register_event_buses!
@@ -295,10 +238,8 @@ module Plugins
                 base.include(::Omnes::Subscriber[**options])
                 base.include Plugins.decorators.inheritables.singleton_methods
                 base.inheritable_class_attribute :eventable_subscription_buses
-                base.inheritable_class_attribute :eventable_subscription_definitions
                 base.inheritable_class_attribute :eventable_event_object_classes
                 base.eventable_subscription_buses = []
-                base.eventable_subscription_definitions = []
                 base.eventable_event_object_classes = nil
                 base.extend(ClassMethods)
                 base.include(InstanceMethods)
@@ -317,14 +258,8 @@ module Plugins
 
                 tracer = TracePoint.new(:end) do |tp|
                   if tp.self == base
-                    begin
-                      base.eventable_register_event_buses!
-                    rescue StandardError
-                      ::Plugins::Models::Concerns::Eventable::SubscribesToEvents.eventable_subsciber_classes.delete(base)
-                      raise
-                    ensure
-                      tracer.disable
-                    end
+                    base.eventable_register_event_buses!
+                    tracer.disable
                   end
                 end
 
@@ -345,17 +280,38 @@ module Plugins
               handler = opts[:handler] || block
 
               eventable_bus.instance(bus.to_sym, init: true)
-              adapter = eventable_handler_adapter(handler)
-              events.each do |event_name|
-                eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
-                eventable_declare_subscription(bus, :event, adapter, event_name: event_name)
+
+              case handler
+              when Proc
+                events.each do |event_name|
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, &eventable_guarded_proc_handler(handler))
+                end
+              when String, Symbol
+                events.each do |event_name|
+                  eventable_bus.register(bus.to_sym, event_name) unless eventable_bus.registered?(bus.to_sym, event_name)
+                  handle event_name, with: eventable_guarded_handler_method_name(handler)
+                end
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
+              else
+                events.each do |event_name|
+                  eventable_bus.safe_subscribe(bus.to_sym, event_name, eventable_guarded_callable_handler(handler))
+                end
               end
             end
 
             def on_matched_event(matcher, **opts, &block)
               handler = opts[:handler] || block
               bus = opts[:bus] || :default
-              eventable_declare_subscription(bus, :matcher, eventable_handler_adapter(handler), matcher: matcher)
+
+              case handler
+              when Proc
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &eventable_guarded_proc_handler(handler))
+              when String, Symbol
+                handle_with_matcher matcher, with: eventable_guarded_handler_method_name(handler)
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
+              else
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, eventable_guarded_callable_handler(handler))
+              end
             end
 
             def on_all_events(**opts, &block)
@@ -363,26 +319,14 @@ module Plugins
               bus = opts[:bus] || :default
               matcher = opts[:matcher]
 
-              adapter = eventable_handler_adapter(handler)
-              eventable_declare_subscription(bus, matcher ? :matcher : :all, adapter, matcher: matcher)
-            end
-
-            def eventable_declare_subscription(bus, kind, adapter, **options)
-              bus = bus.to_sym
-              self.eventable_subscription_definitions = eventable_subscription_definitions + [
-                { bus: bus, kind: kind, adapter: adapter, **options }
-              ]
-              self.eventable_subscription_buses = (eventable_subscription_buses + [bus]).uniq
-            end
-
-            def eventable_handler_adapter(handler)
               case handler
               when Proc
-                eventable_guarded_proc_handler(handler)
+                eventable_bus.subscribe_with_matcher(bus.to_sym, matcher, &eventable_guarded_proc_handler(handler))
               when String, Symbol
-                eventable_guarded_handler_method_name(handler)
+                handle_with_matcher matcher, with: eventable_guarded_handler_method_name(handler)
+                eventable_subscription_buses << bus unless eventable_subscription_buses.include?(bus)
               else
-                eventable_guarded_callable_handler(handler)
+                eventable_bus.subscribe_to_all(bus.to_sym, matcher, eventable_guarded_callable_handler(handler))
               end
             end
 
@@ -402,68 +346,26 @@ module Plugins
             end
 
             def eventable_guarded_proc_handler(handler)
-              proc do |subscriber, event|
-                next unless subscriber.eventable_event_object_matches?(event)
+              proc do |event|
+                next unless eventable_event_object_matches?(event)
 
-                subscriber.instance_exec(event, &handler)
+                instance_exec(event, &handler)
               end
             end
 
             def eventable_guarded_callable_handler(handler)
-              proc do |subscriber, event|
-                next unless subscriber.eventable_event_object_matches?(event)
+              proc do |event|
+                next unless eventable_event_object_matches?(event)
 
                 handler.call(event)
               end
             end
 
             def eventable_register_event_buses!
-              ::Plugins::Models::Concerns::Eventable::SubscribesToEvents.register_unload_callback(self)
-              return if instance_variable_defined?(:@eventable_subscriptions)
-
-              registrations = []
-              begin
-                eventable_subscription_buses.uniq.each do |bus|
-                  registration = SubscriptionRegistration.new(eventable_bus.instance(bus, init: true))
-                  registrations << registration
-                  subscriber = new
-                  eventable_subscription_definitions.each do |definition|
-                    next unless definition[:bus] == bus
-
-                    adapter = definition[:adapter]
-                    callback = lambda do |event|
-                      if adapter.is_a?(Symbol)
-                        subscriber.public_send(adapter, event)
-                      else
-                        adapter.call(subscriber, event)
-                      end
-                    end
-                    case definition[:kind]
-                    when :event
-                      registration.subscribe(definition[:event_name], &callback)
-                    when :matcher
-                      registration.subscribe_with_matcher(definition[:matcher], &callback)
-                    when :all
-                      registration.subscribe_to_all(&callback)
-                    end
-                  end
-                  subscriber.subscribe_to(registration)
-                end
-              rescue StandardError
-                registrations.each(&:unsubscribe_all!)
-                raise
+              eventable_subscription_buses.uniq.each do |bus|
+                bus_obj = eventable_bus.instance(bus, init: true)
+                new.subscribe_to(bus_obj)
               end
-              instance_variable_set(:@eventable_subscriptions, registrations.flat_map do |registration|
-                registration.subscriptions.map { |subscription| [registration.bus, subscription] }
-              end)
-            end
-
-            def eventable_unregister_event_buses!
-              Array(instance_variable_get(:@eventable_subscriptions)).each do |bus, subscription|
-                bus.unsubscribe(subscription)
-              end
-              remove_instance_variable(:@eventable_subscriptions) if
-                instance_variable_defined?(:@eventable_subscriptions)
             end
           end
 

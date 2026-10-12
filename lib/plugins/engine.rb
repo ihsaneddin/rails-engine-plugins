@@ -12,7 +12,6 @@ module Plugins
         ::Plugins::Configuration::Bus.clear_all!
       end
         ::Plugins::Configuration::Bus.apply_setup!
-        ::Plugins::Models::Concerns::Eventable::SubscribesToEvents.install_unload_callbacks!
       # ::Plugins::Models::Concerns::Eventable::PublishesEvents.eventable_register_events
       # ::Plugins::Models::Concerns::Eventable::SubscribesToEvents.eventable_register_event_buses!
     end
