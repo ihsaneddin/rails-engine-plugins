@@ -272,15 +272,6 @@ on_event :payment_completed, bus: :payments do |event|
 end
 ```
 
-Method, block, callable, matched, and all-event declarations bind through the
-subscriber instance only to their declared bus when its class definition
-completes. For reloadable Rails
-classes, Eventable removes only that class's subscriptions before unload; other
-listeners on the same bus remain registered. Classes defined before the Rails
-application exists receive their unload hooks after initialization. If a
-class registration fails partway through, Eventable removes only the
-subscriptions installed by that registration attempt and re-raises the error.
-
 ### CustomAttributes
 
 `CustomAttributes` provides a structured way to define typed custom attributes and their behavior once, then reuse them across models.
