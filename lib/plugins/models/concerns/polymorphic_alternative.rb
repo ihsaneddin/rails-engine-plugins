@@ -27,11 +27,7 @@ module Plugins
                   val.to_s.delete_prefix("::") == type.to_s ||
                     val.to_s.delete_prefix("::") == type.to_s.safe_constantize&.base_class&.name
                 end&.first
-                if respond_to?(relation)
-                  send(relation) || send("#{assoc}")
-                else
-                  send("#{assoc}")
-                end
+                relation ? public_send(relation) || public_send(assoc) : public_send(assoc)
               end
             end
           end
