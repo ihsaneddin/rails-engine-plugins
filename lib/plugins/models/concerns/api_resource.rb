@@ -106,6 +106,37 @@ module Plugins
           options.transform_values { |value| deep_dup_option_value(value) }
         end
 
+        def self.prune_default_values(config, defaults)
+          pruned = config.dup
+          _prune_default_values!(pruned, defaults)
+        end
+
+        def self._prune_default_values!(config, defaults)
+          config.keys.each do |key|
+            value = config.values[key]
+            default_value = defaults.values[key]
+
+            if value.is_a?(::Plugins::Models::Concerns::Config) && default_value.is_a?(::Plugins::Models::Concerns::Config)
+              _prune_default_values!(value, default_value)
+              config.remove_key(key) if _equivalent_config?(value, default_value)
+            elsif value == default_value
+              config.remove_key(key)
+            end
+          end
+
+          config
+        end
+
+        def self._equivalent_config?(left, right)
+          return false unless left.class == right.class
+
+          if left.is_a?(::Plugins::Models::Concerns::Config::Collection)
+            left.order == right.order && left.values == right.values
+          else
+            left.values == right.values
+          end
+        end
+
         module ClassMethods
 
           def grape_api_resource *args, &block
@@ -120,22 +151,18 @@ module Plugins
               ::Plugins::Models::Concerns::ApiResource.default_options
             )
             if from.present?
-              source_cfg = _grape_api_resource_config_for(from)
-              raise ArgumentError, "Unknown grape_api_resource context: #{from}" unless source_cfg
-
-              inherited_cfg = source_cfg.dup
-              inherited_cfg.set(:context, ctx)
-              inherited_cfg.set(:default, setup_defaults[:default]) unless opts.key?(:default)
-              inherited_cfg.set_context(self)
-              if respond_to?("_#{ctx}_grape_api_resource_config")
-                send("_#{ctx}_grape_api_resource_config=", inherited_cfg)
-              else
-                setup_defaults = setup_defaults.merge(inherited_cfg.values)
-              end
+              setup_defaults = prepare_inherited_api_resource_config(
+                kind: :grape_api_resource,
+                context: ctx,
+                source: from,
+                options: opts,
+                defaults: setup_defaults
+              )
             end
 
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
+            record_local_api_resource_context(:grape_api_resource, ctx)
 
             inheritable_class_attribute :default_grape_api_resource_config_context unless respond_to?(:default_grape_api_resource_config_context)
             if send("#{ctx}_grape_api_resource_default")
@@ -180,22 +207,18 @@ module Plugins
               ::Plugins::Models::Concerns::ApiResource.default_api_options
             )
             if from.present?
-              source_cfg = _api_resource_config_for(from)
-              raise ArgumentError, "Unknown api_resource context: #{from}" unless source_cfg
-
-              inherited_cfg = source_cfg.dup
-              inherited_cfg.set(:context, ctx)
-              inherited_cfg.set(:default, setup_defaults[:default]) unless opts.key?(:default)
-              inherited_cfg.set_context(self)
-              if respond_to?("_#{ctx}_api_resource_config")
-                send("_#{ctx}_api_resource_config=", inherited_cfg)
-              else
-                setup_defaults = setup_defaults.merge(inherited_cfg.values)
-              end
+              setup_defaults = prepare_inherited_api_resource_config(
+                kind: :api_resource,
+                context: ctx,
+                source: from,
+                options: opts,
+                defaults: setup_defaults
+              )
             end
 
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_api_resource", &block)
+            record_local_api_resource_context(:api_resource, ctx)
 
             inheritable_class_attribute :default_api_resource_config_context unless respond_to?(:default_api_resource_config_context)
             if send("#{ctx}_api_resource_default")
@@ -226,6 +249,48 @@ module Plugins
 
           def api_resource?
             false
+          end
+
+          private
+
+          def prepare_inherited_api_resource_config(kind:, context:, source:, options:, defaults:)
+            source_cfg = send("_#{kind}_config_for", source)
+            raise ArgumentError, "Unknown #{kind} context: #{source}" unless source_cfg
+
+            inherited_cfg = source_cfg.dup
+            if local_api_resource_context?(kind, context)
+              current_cfg = send("_#{kind}_config_for", context)
+              default_cfg = ::Plugins::Models::Concerns::Config.build(
+                **::Plugins::Models::Concerns::ApiResource.deep_dup_options(defaults)
+              )
+              local_overrides = ::Plugins::Models::Concerns::ApiResource.prune_default_values(current_cfg, default_cfg)
+              inherited_cfg = inherited_cfg.deep_merge(local_overrides)
+              inherited_cfg.set(:default, current_cfg.values[:default]) unless options.key?(:default)
+            else
+              inherited_cfg.set(:default, defaults[:default]) unless options.key?(:default)
+            end
+
+            inherited_cfg.set(:context, context)
+            inherited_cfg.set_context(self)
+
+            reader = "_#{context}_#{kind}_config"
+            if respond_to?(reader)
+              send("#{reader}=", inherited_cfg)
+              defaults
+            else
+              defaults.merge(inherited_cfg.values)
+            end
+          end
+
+          def local_api_resource_context?(kind, context)
+            local_contexts = instance_variable_get(:@_plugins_local_api_resource_contexts)
+            local_contexts && local_contexts.fetch(kind, {}).key?(context.to_s)
+          end
+
+          def record_local_api_resource_context(kind, context)
+            local_contexts = instance_variable_get(:@_plugins_local_api_resource_contexts) || {}
+            local_contexts[kind] = local_contexts.fetch(kind, {}).merge(context.to_s => true)
+            instance_variable_set(:@_plugins_local_api_resource_contexts, local_contexts)
           end
 
         end
