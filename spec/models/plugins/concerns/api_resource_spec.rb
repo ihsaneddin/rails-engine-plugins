@@ -90,6 +90,42 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(app_cfg.get(:query_scope, [])).to eq([:child_query_scope])
     end
 
+    it "preserves a target composed earlier on the same class" do
+      klass = builder.build_model do
+        grape_api_resource "calendar" do
+          presenter "SchedulePresenter"
+          query_scope { |query| query + [:schedule_query_scope] }
+          resource_params_attributes [:schedule_attributes]
+          should_paginate false
+
+          resource_actions do
+            available_at do
+              http_method "get"
+            end
+          end
+        end
+
+        grape_api_resource "branch", from: "calendar"
+
+        grape_api_resource "app" do
+          presenter "BranchPresenter"
+        end
+
+        grape_api_resource "branch", from: "app" do
+          resource_identifier :slug
+        end
+      end
+
+      branch_cfg = klass.grape_api_resource_of("branch")
+
+      expect(branch_cfg.values[:presenter]).to eq("SchedulePresenter")
+      expect(branch_cfg.get(:query_scope, [])).to eq([:schedule_query_scope])
+      expect(branch_cfg.values[:resource_params_attributes]).to eq([:schedule_attributes])
+      expect(branch_cfg.values[:should_paginate]).to eq(false)
+      expect(branch_cfg.values[:resource_actions][:available_at].values[:http_method]).to eq("get")
+      expect(branch_cfg.values[:resource_identifier]).to eq(:slug)
+    end
+
     it "raises for an unknown source context" do
       expect do
         builder.build_model do
@@ -151,6 +187,35 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
 
       expect(app_cfg.values[:presenter]).to eq("ChildSourcePresenter")
       expect(app_cfg.values[:resource_finder_key]).to eq(:id)
+    end
+
+    it "preserves a target composed earlier on the same class" do
+      klass = builder.build_model do
+        api_resource "calendar" do
+          presenter "ScheduleSerializer"
+          query_scope { |query| query + [:schedule_query_scope] }
+          query_includes [:calendar]
+        end
+
+        api_resource "admin", from: "calendar"
+
+        api_resource "app" do
+          presenter "AdminSerializer"
+          resource_finder_key :uuid
+        end
+
+        api_resource "admin", from: "app" do
+          resource_identifier :slug
+        end
+      end
+
+      admin_cfg = klass.api_resource_of("admin")
+
+      expect(admin_cfg.values[:presenter]).to eq("ScheduleSerializer")
+      expect(admin_cfg.get(:query_scope, [])).to eq([:schedule_query_scope])
+      expect(admin_cfg.values[:query_includes]).to eq([:calendar])
+      expect(admin_cfg.values[:resource_finder_key]).to eq(:uuid)
+      expect(admin_cfg.values[:resource_identifier]).to eq(:slug)
     end
 
     it "raises for an unknown source context" do
