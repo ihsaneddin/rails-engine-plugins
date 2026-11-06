@@ -27,4 +27,52 @@ RSpec.describe Plugins::Models::Concerns::PolymorphicAlternative do
     expect(reflection.options[:class_name]).to eq("::Admin::Context")
     expect(AuditEntry.context_classes[:admin_context]).to eq("::Admin::Context")
   end
+
+  it "uses the generated relation for a registered polymorphic type" do
+    AuditEntry.define_alternative_polymorphic_parent_association(
+      assoc: :context,
+      new_assoc: :admin_context,
+      base_class: Admin::Context
+    )
+
+    entry = AuditEntry.allocate
+    context = Object.new
+    alternative_context = Object.new
+    entry.define_singleton_method(:context_type) { "Admin::Context" }
+    entry.define_singleton_method(:context) { context }
+    entry.define_singleton_method(:admin_context) { alternative_context }
+
+    expect(entry.context_instance).to equal(alternative_context)
+  end
+
+  it "falls back to the polymorphic relation when the generated relation is empty" do
+    AuditEntry.define_alternative_polymorphic_parent_association(
+      assoc: :context,
+      new_assoc: :admin_context,
+      base_class: Admin::Context
+    )
+
+    entry = AuditEntry.allocate
+    context = Object.new
+    entry.define_singleton_method(:context_type) { "Admin::Context" }
+    entry.define_singleton_method(:context) { context }
+    entry.define_singleton_method(:admin_context) { nil }
+
+    expect(entry.context_instance).to equal(context)
+  end
+
+  it "falls back to the polymorphic relation when the type has no generated relation" do
+    AuditEntry.define_alternative_polymorphic_parent_association(
+      assoc: :context,
+      new_assoc: :admin_context,
+      base_class: Admin::Context
+    )
+
+    entry = AuditEntry.allocate
+    context = Object.new
+    entry.define_singleton_method(:context_type) { "ExternalContext" }
+    entry.define_singleton_method(:context) { context }
+
+    expect(entry.context_instance).to equal(context)
+  end
 end
