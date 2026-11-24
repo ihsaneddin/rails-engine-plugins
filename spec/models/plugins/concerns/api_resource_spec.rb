@@ -15,7 +15,136 @@ require File.expand_path("../../../dummy/lib/dummy/plugins/models/concerns/api_r
 RSpec.describe Plugins::Models::Concerns::ApiResource do
   let(:builder) { Dummy::Plugins::Models::Concerns::ApiResourceSpecSupport }
 
+  shared_examples "deferred resource configuration propagation" do |resource_method|
+    it "propagates a late parent context without overriding subclass-local composition" do
+      parent = builder.build_model
+      child = Class.new(parent)
+      sibling = Class.new(parent)
+
+      child.public_send(resource_method, "app") do
+        presenter "ChildPresenter"
+      end
+      child.public_send(resource_method, "admin", from: "app", default: false) do
+        collection_actions do
+          child_action do
+            http_method "post"
+          end
+        end
+      end
+      sibling.public_send(resource_method, "admin") do
+        collection_actions do
+          sibling_action do
+            http_method "patch"
+          end
+        end
+      end
+
+      parent.public_send(resource_method, "admin", default: true) do
+        presenter "ParentPresenter"
+        resource_identifier :uuid
+        query_includes [:parent_include]
+
+        collection_actions do
+          inherited_action do
+            http_method "get"
+          end
+        end
+      end
+
+      parent_config = parent.public_send("#{resource_method}_of", "admin")
+      child_config = child.public_send("#{resource_method}_of", "admin")
+      sibling_config = sibling.public_send("#{resource_method}_of", "admin")
+
+      expect(parent_config.values[:collection_actions].keys).to eq([:inherited_action])
+      expect(child_config.values[:collection_actions].keys).to eq(%i[inherited_action child_action])
+      expect(sibling_config.values[:collection_actions].keys).to eq(%i[inherited_action sibling_action])
+
+      expect(child_config.values[:presenter]).to eq("ChildPresenter")
+      expect(sibling_config.values[:presenter]).to eq("ParentPresenter")
+      expect(child_config.values[:resource_identifier]).to eq(:uuid)
+      expect(sibling_config.values[:query_includes]).to eq([:parent_include])
+      expect(child_config.values[:default]).to eq(false)
+      expect(sibling_config.values[:default]).to eq(true)
+
+      expect(child_config).not_to equal(parent_config)
+      expect(sibling_config).not_to equal(parent_config)
+      expect(child_config.values[:collection_actions]).not_to equal(parent_config.values[:collection_actions])
+      expect(sibling_config.values[:collection_actions]).not_to equal(parent_config.values[:collection_actions])
+      expect(child_config.values[:collection_actions][:inherited_action])
+        .not_to equal(parent_config.values[:collection_actions][:inherited_action])
+
+      parent.public_send(resource_method, "admin") do
+        presenter "UpdatedParentPresenter"
+        resource_identifier :slug
+        query_includes [:updated_parent_include]
+
+        collection_actions do
+          second_inherited_action do
+            http_method "put"
+          end
+        end
+      end
+
+      parent_config = parent.public_send("#{resource_method}_of", "admin")
+      child_config = child.public_send("#{resource_method}_of", "admin")
+      sibling_config = sibling.public_send("#{resource_method}_of", "admin")
+
+      expect(child_config.values[:presenter]).to eq("ChildPresenter")
+      expect(sibling_config.values[:presenter]).to eq("UpdatedParentPresenter")
+      expect(child_config.values[:resource_identifier]).to eq(:slug)
+      expect(sibling_config.values[:query_includes]).to eq([:updated_parent_include])
+      expect(child_config.values[:default]).to eq(false)
+      expect(child_config.values[:collection_actions].keys)
+        .to eq(%i[inherited_action second_inherited_action child_action])
+      expect(sibling_config.values[:collection_actions].keys)
+        .to eq(%i[inherited_action second_inherited_action sibling_action])
+
+      child_config.values[:collection_actions][:inherited_action].set(:http_method, "delete")
+      expect(parent_config.values[:collection_actions][:inherited_action].values[:http_method]).to eq("get")
+      expect(sibling_config.values[:collection_actions][:inherited_action].values[:http_method]).to eq("get")
+    end
+
+    it "retains inherited target actions when a subclass later composes from another context" do
+      parent = builder.build_model do
+        public_send(resource_method, "admin") do
+          presenter "ParentPresenter"
+
+          collection_actions do
+            inherited_action do
+              http_method "get"
+            end
+          end
+        end
+      end
+      child = Class.new(parent) do
+        public_send(resource_method, "app") do
+          presenter "ChildPresenter"
+        end
+
+        public_send(resource_method, "admin", from: "app") do
+          collection_actions do
+            child_action do
+              http_method "post"
+            end
+          end
+        end
+      end
+
+      parent_config = parent.public_send("#{resource_method}_of", "admin")
+      child_config = child.public_send("#{resource_method}_of", "admin")
+
+      expect(parent_config.values[:collection_actions].keys).to eq([:inherited_action])
+      expect(child_config.values[:collection_actions].keys).to eq(%i[inherited_action child_action])
+      expect(child_config.values[:presenter]).to eq("ChildPresenter")
+      expect(child_config.values[:collection_actions]).not_to equal(parent_config.values[:collection_actions])
+      expect(child_config.values[:collection_actions][:inherited_action])
+        .not_to equal(parent_config.values[:collection_actions][:inherited_action])
+    end
+  end
+
   describe ".grape_api_resource" do
+    include_examples "deferred resource configuration propagation", :grape_api_resource
+
     it "clones a source context and applies overrides" do
       klass = builder.build_model do
         grape_api_resource "payment_core", default: true do
@@ -138,6 +267,8 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
   end
 
   describe ".api_resource" do
+    include_examples "deferred resource configuration propagation", :api_resource
+
     it "clones a source context and applies overrides" do
       klass = builder.build_model do
         api_resource "payment_core", default: true do
