@@ -189,6 +189,38 @@ RSpec.describe Plugins::Models::Concerns::ApiResource do
       expect(app_cfg.values[:resource_finder_key]).to eq(:id)
     end
 
+    it "isolates a deferred subclass context from its ancestor and siblings" do
+      parent = builder.build_model
+      child = Class.new(parent)
+      sibling = Class.new(parent)
+
+      parent.api_resource "admin" do
+        collection_actions do
+          inherited_action do
+            http_method "get"
+          end
+        end
+      end
+
+      child.api_resource "admin" do
+        collection_actions do
+          child_action do
+            http_method "post"
+          end
+        end
+      end
+
+      parent_actions = parent.api_resource_of("admin").values[:collection_actions]
+      child_actions = child.api_resource_of("admin").values[:collection_actions]
+      sibling_actions = sibling.api_resource_of("admin").values[:collection_actions]
+
+      expect(parent_actions.keys).to eq([:inherited_action])
+      expect(sibling_actions.keys).to eq([:inherited_action])
+      expect(child_actions.keys).to eq(%i[inherited_action child_action])
+      expect(child_actions).not_to equal(parent_actions)
+      expect(child_actions).not_to equal(sibling_actions)
+    end
+
     it "preserves a target composed earlier on the same class" do
       klass = builder.build_model do
         api_resource "calendar" do
