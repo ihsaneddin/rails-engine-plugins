@@ -251,14 +251,19 @@ module Plugins
           _config_name = "_#{config_name}"
 
           if base.respond_to?(_config_name)
-            default_opts = default_opts.merge(base.send(_config_name).values.dup)
+            current_config = base.send(_config_name)
+            default_opts = default_opts.merge(current_config.values.dup)
             opts = default_opts.merge(opts.slice(*default_opts.keys))
-            base.send(_config_name).instance_variable_set(:@_values, opts.dup)
-            base.send("#{_config_name}=", base.send(_config_name).dup)
+            config = current_config.dup
+            config.instance_variable_set(
+              :@_values,
+              opts.transform_values { |value| config.send(:duplicable_merge_value, value) }
+            )
+            base.send("#{_config_name}=", config)
             if block_given?
-              base.send(_config_name).setup(**opts, &block)
+              config.setup(&block)
             end
-            base.send(_config_name).set_context(base)
+            config.set_context(base)
           else
             base.include ::Plugins.decorators.inheritables.singleton_methods
             base.include ::Plugins.decorators.smart_send
