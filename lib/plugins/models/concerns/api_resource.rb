@@ -144,6 +144,7 @@ module Plugins
             ctx = args[0] || "default"
             opts = args.extract_options!
             from = opts.delete(:from)
+            explicit_option_keys = opts.keys
 
             opts[:context] = ctx
 
@@ -160,9 +161,21 @@ module Plugins
               )
             end
 
+            declaration_baseline = deferred_api_resource_declaration_baseline(
+              :grape_api_resource,
+              ctx,
+              setup_defaults
+            )
+
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_grape_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_grape_api_resource", &block)
-            record_local_api_resource_context(:grape_api_resource, ctx)
+            record_local_api_resource_context(
+              :grape_api_resource,
+              ctx,
+              baseline: declaration_baseline,
+              explicit_option_keys: explicit_option_keys,
+              preserve_composed_source: from.present?
+            )
 
             inheritable_class_attribute :default_grape_api_resource_config_context unless respond_to?(:default_grape_api_resource_config_context)
             if send("#{ctx}_grape_api_resource_default")
@@ -172,6 +185,7 @@ module Plugins
             define_inheritable_singleton_method(:grape_api_resource?) { true }
 
             include InstanceMethods
+            propagate_deferred_api_resource_context(:grape_api_resource, ctx)
           end
 
           def grape_api_resource_of(ctx=nil)
@@ -200,6 +214,7 @@ module Plugins
             ctx = args[0] || "default"
             opts = args.extract_options!
             from = opts.delete(:from)
+            explicit_option_keys = opts.keys
 
             opts[:context] = ctx
 
@@ -216,9 +231,21 @@ module Plugins
               )
             end
 
+            declaration_baseline = deferred_api_resource_declaration_baseline(
+              :api_resource,
+              ctx,
+              setup_defaults
+            )
+
             ::Plugins::Models::Concerns::Config.setup(self, "#{ctx}_api_resource_config", opts, setup_defaults,
                                                         method_prefix: "#{ctx}_api_resource", &block)
-            record_local_api_resource_context(:api_resource, ctx)
+            record_local_api_resource_context(
+              :api_resource,
+              ctx,
+              baseline: declaration_baseline,
+              explicit_option_keys: explicit_option_keys,
+              preserve_composed_source: from.present?
+            )
 
             inheritable_class_attribute :default_api_resource_config_context unless respond_to?(:default_api_resource_config_context)
             if send("#{ctx}_api_resource_default")
@@ -228,6 +255,7 @@ module Plugins
             define_inheritable_singleton_method(:api_resource?) { true }
 
             include InstanceMethods
+            propagate_deferred_api_resource_context(:api_resource, ctx)
           end
 
           def api_resource_of(ctx=nil)
@@ -267,6 +295,8 @@ module Plugins
               inherited_cfg = inherited_cfg.deep_merge(local_overrides)
               inherited_cfg.set(:default, current_cfg.values[:default]) unless options.key?(:default)
             else
+              current_cfg = send("_#{kind}_config_for", context)
+              inherited_cfg = compose_inherited_target_actions(inherited_cfg, current_cfg) if current_cfg
               inherited_cfg.set(:default, defaults[:default]) unless options.key?(:default)
             end
 
@@ -282,15 +312,95 @@ module Plugins
             end
           end
 
-          def local_api_resource_context?(kind, context)
-            local_contexts = instance_variable_get(:@_plugins_local_api_resource_contexts)
-            local_contexts && local_contexts.fetch(kind, {}).key?(context.to_s)
+          def compose_inherited_target_actions(source_config, target_config)
+            %i[resource_actions collection_actions].each_with_object(source_config) do |key, config|
+              source_actions = config.values[key]
+              target_actions = target_config.values[key]
+              next unless source_actions.is_a?(::Plugins::Models::Concerns::Config::Collection)
+              next unless target_actions.is_a?(::Plugins::Models::Concerns::Config::Collection)
+
+              config.add(key, source_actions.deep_merge(target_actions))
+            end
           end
 
-          def record_local_api_resource_context(kind, context)
+          def local_api_resource_context?(kind, context)
+            !local_api_resource_override(kind, context).nil?
+          end
+
+          def record_local_api_resource_context(kind, context, baseline:, explicit_option_keys:, preserve_composed_source:)
+            current_config = send("_#{kind}_config_for", context)
+            comparison_config = if preserve_composed_source
+                                  deferred_api_resource_default_config(kind)
+                                else
+                                  baseline
+                                end
+            local_override = ::Plugins::Models::Concerns::ApiResource.prune_default_values(
+              current_config,
+              comparison_config
+            )
+            explicit_option_keys.each do |key|
+              local_override.add(
+                key,
+                ::Plugins::Models::Concerns::ApiResource.deep_dup_option_value(current_config.values[key])
+              )
+            end
+
             local_contexts = instance_variable_get(:@_plugins_local_api_resource_contexts) || {}
-            local_contexts[kind] = local_contexts.fetch(kind, {}).merge(context.to_s => true)
+            previous_override = local_contexts.fetch(kind, {})[context.to_s]
+            local_override = previous_override.deep_merge(local_override) if previous_override
+            local_override.set_context(self)
+            local_contexts[kind] = local_contexts.fetch(kind, {}).merge(context.to_s => local_override)
             instance_variable_set(:@_plugins_local_api_resource_contexts, local_contexts)
+          end
+
+          def local_api_resource_override(kind, context)
+            local_contexts = instance_variable_get(:@_plugins_local_api_resource_contexts)
+            local_contexts && local_contexts.fetch(kind, {})[context.to_s]
+          end
+
+          def deferred_api_resource_declaration_baseline(kind, context, setup_defaults)
+            current_config = send("_#{kind}_config_for", context)
+            return current_config.dup if current_config
+
+            ::Plugins::Models::Concerns::Config.build(
+              **::Plugins::Models::Concerns::ApiResource.deep_dup_options(setup_defaults)
+            )
+          end
+
+          def deferred_api_resource_default_config(kind)
+            defaults = if kind == :api_resource
+                         ::Plugins::Models::Concerns::ApiResource.default_api_options
+                       else
+                         ::Plugins::Models::Concerns::ApiResource.default_options
+                       end
+            ::Plugins::Models::Concerns::Config.build(
+              **::Plugins::Models::Concerns::ApiResource.deep_dup_options(defaults)
+            )
+          end
+
+          def propagate_deferred_api_resource_context(kind, context)
+            return unless respond_to?(:subclasses)
+
+            config = send("_#{kind}_config_for", context)
+            subclasses.each do |subclass|
+              next unless subclass.respond_to?("#{kind}_of")
+
+              subclass.send(:inherit_deferred_api_resource_context, kind, context, config)
+            end
+          end
+
+          def inherit_deferred_api_resource_context(kind, context, parent_config)
+            config = parent_config.dup
+            local_override = local_api_resource_override(kind, context)
+            config.deep_merge!(local_override) if local_override
+            config.set_context(self)
+
+            writer = "_#{context}_#{kind}_config="
+            unless respond_to?(writer)
+              inheritable_class_attribute "_#{context}_#{kind}_config".to_sym
+            end
+            send(writer, config)
+            propagate_deferred_api_resource_context(kind, context)
           end
 
         end
